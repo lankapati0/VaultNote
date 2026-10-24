@@ -1,0 +1,183 @@
+package com.lankeshwar.vaultnote.screens
+
+import android.content.Intent
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import com.lankeshwar.vaultnote.data.Note
+import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
+
+private object Routes {
+    const val NOTES = "notes"
+    const val CREATE_NOTE = "create_note"
+    const val EDIT_NOTE = "edit_note"
+    const val NOTE_DETAIL = "note_detail"
+    const val PRIVATE = "private"
+    const val SETTINGS = "settings"
+}
+
+@Composable
+fun MainScreen() {
+    val notesViewModel: NotesViewModel = hiltViewModel()
+    val navController = rememberNavController()
+    val backstackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backstackEntry?.destination?.route
+    var selectedNote by remember {
+        mutableStateOf<Note?>(null)
+    }
+
+    Scaffold (
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = currentRoute == Routes.NOTES,
+                    onClick = {
+                        navController.navigate(Routes.NOTES){
+                            popUpTo(navController.graph.startDestinationId){
+                                inclusive = false
+                            }
+                            launchSingleTop = true
+                        }
+                    },
+                    icon = { Text("📝") },
+                    label = {Text("Notes")}
+                )
+                NavigationBarItem(
+                    selected = currentRoute == Routes.PRIVATE,
+                    onClick = {
+                        navController.navigate(Routes.PRIVATE){
+                            popUpTo(navController.graph.startDestinationId){
+                                inclusive = false
+                            }
+                            launchSingleTop = true
+                        }
+                    },
+                    icon = { Text("🔒") },
+                    label = {Text("Private")}
+                )
+                NavigationBarItem(
+                    selected = currentRoute == Routes.SETTINGS,
+                    onClick = {
+                        navController.navigate(Routes.SETTINGS){
+                            popUpTo(navController.graph.startDestinationId){
+                                inclusive = false
+                            }
+                            launchSingleTop = true
+
+                        }
+                    },
+                    icon = { Text("⚙️") },
+                    label = {Text("Settings")}
+                )
+            }
+        }
+    ) { innerPadding ->
+        val context = LocalContext.current
+        NavHost(
+            navController = navController,
+            startDestination = Routes.NOTES,
+            modifier = Modifier.padding(innerPadding)
+        ){
+            composable(route = Routes.NOTES) {
+                NotesScreen(
+                  notesViewModel = notesViewModel,
+                    onAddNote = {
+                        navController.navigate(Routes.CREATE_NOTE)
+                    },
+                    onEditNote = {note ->
+                        selectedNote = note
+                        navController.navigate(Routes.NOTE_DETAIL)
+                    }
+                )
+            }
+
+            composable(route=Routes.CREATE_NOTE){
+                CreateNoteScreen(
+                    onSave = {title,content ->
+                        notesViewModel.addNote(title,content)
+                        navController.popBackStack()
+                    },
+                    onCancel = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            composable (Routes.EDIT_NOTE){
+                val note = selectedNote
+                if (note != null){
+                    EditNoteScreen(
+                        initialTitle = note.title,
+                        initialContent = note.preview,
+                        onSave = {title, content ->
+                            notesViewModel.updateNote(
+                                note = note,
+                                title = title,
+                                content = content
+                            )
+                            navController.popBackStack()
+                        },
+                        onCancel = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+            }
+            composable(Routes.NOTE_DETAIL){
+                val note = selectedNote
+                if(note != null){
+                    NoteDetailScreen(
+                        title = note.title,
+                        content = note.preview,
+                        date = note.date,
+                        onBack = {
+                            navController.popBackStack()
+                        },
+                        onShare = {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT,note.title)
+                                putExtra(Intent.EXTRA_TEXT,"${note.title}\n\n${note.preview}")
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent,"Share note"))
+
+                        },
+                        onEdit = {
+                            navController.navigate(Routes.EDIT_NOTE)
+                        }
+                    )
+                }
+            }
+
+            composable(Routes.PRIVATE) {
+                PrivateNotesScreen(
+                    notesViewModel = notesViewModel,
+                    onNoteClick = {note ->
+                        selectedNote = note
+                        navController.navigate(Routes.NOTE_DETAIL)
+                    }
+                )
+            }
+            composable(Routes.SETTINGS) {
+                Text("Settings", Modifier.padding(20.dp), style = MaterialTheme.typography.headlineMedium)
+            }
+        }
+    }
+}
