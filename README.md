@@ -1,4 +1,5 @@
-Vaultnote 📝🔒
+**Vaultnote 📝🔒**
+
 Vaultnote is a secure, offline-first note-taking Android application built with modern Android development best practices. It prioritizes user privacy by design, featuring robust local persistence, biometric security, custom theme controls, and end-to-end encryption (E2EE) where data is encrypted directly on the device before any future cloud synchronization.
 
 ✨ Features
@@ -62,7 +63,7 @@ Android SDK API Level 24 or higher (Min SDK: 24, Target SDK: 34+)
 Installation & Setup
 Clone the repository: 
 
-git clone https://github.com/your-username/vaultnote.git
+git clone https://github.com/lankapati0/vaultnote.git
 
 Open the project in Android Studio.
 
