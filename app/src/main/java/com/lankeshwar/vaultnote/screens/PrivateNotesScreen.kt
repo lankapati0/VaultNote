@@ -46,7 +46,7 @@ fun PrivateNotesScreen(
     var content by remember { mutableStateOf("") }
     val context = LocalContext.current
 
-    val activity = content as? FragmentActivity
+    val activity = context as? FragmentActivity
 
     var pin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
@@ -129,7 +129,22 @@ fun PrivateNotesScreen(
             ) {
                 Text(if(isSettingPin) "Save PIN" else "Unlock")
             }
-
+            if(!isSettingPin && activity != null && BiometricHelper.canAuthenticate(activity)){
+                Button(
+                    onClick = {
+                        BiometricHelper.authenticate(activity,
+                            onSucess = {
+                                isUnlocked = true
+                                pin = ""
+                            },
+                            onError = { error ->
+                                pinError = error
+                            })
+                    }, modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text("Use Fingerprint")
+                }
+            }
         }
         return
     }
@@ -179,21 +194,6 @@ fun PrivateNotesScreen(
             }
         }
 
-        if(!isSettingPin && activity != null && BiometricHelper.canAuthenticate(activity)){
-            Button(
-                onClick = {
-                    BiometricHelper.authenticate(activity,
-                        onSucess = {
-                            isUnlocked = true
-                            pin = ""
-                        },
-                        onError = { error ->
-                            pinError = error
-                        })
-                }, modifier = Modifier.padding(top = 8.dp)
-            ) {
-                Text("Use Fingerprint")
-            }
-        }
+
     }
 }
