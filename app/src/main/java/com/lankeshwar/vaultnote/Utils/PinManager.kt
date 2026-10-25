@@ -5,6 +5,7 @@ import android.util.Base64
 import java.security.SecureRandom
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
+import androidx.core.content.edit
 
 object PinManager {
 
@@ -14,6 +15,11 @@ object PinManager {
 
     private const val ITERATIONS = 120_000
     private const val KEY_LENGTH = 256
+    private const val FAILED_ATTEMPT_KEY = "failed_pin_attempts"
+    private const val LOCK_UNTIL_KEY = "pin_lock_until"
+    private const val MAX_ATTEMPTS = 5
+    private const val LOCK_DURATION_MS = 30_000L
+
 
     private fun preferences(context: Context) =
         context.getSharedPreferences(
@@ -23,6 +29,36 @@ object PinManager {
 
     fun hasPin(context: Context): Boolean {
         return preferences(context).contains(HASH_KEY)
+    }
+
+    fun remainingLockTime(context: Context):Long {
+        val prefs = preferences(context)
+        val lockUntil = prefs.getLong(LOCK_UNTIL_KEY,0L)
+        val remaining = lockUntil - System.currentTimeMillis()
+
+        return if (remaining > 0L) remaining else 0L
+    }
+
+    fun recordFailedAttempt(context: Context): Int {
+        val prefs = preferences(context)
+        val attempts = prefs.getInt(FAILED_ATTEMPT_KEY,0)+1
+        prefs.edit { putInt(FAILED_ATTEMPT_KEY, attempts) }
+
+        if(attempts >= MAX_ATTEMPTS){
+            prefs.edit{
+                putLong(LOCK_UNTIL_KEY, System.currentTimeMillis() + LOCK_DURATION_MS)
+                putInt(FAILED_ATTEMPT_KEY,0)
+            }
+            return MAX_ATTEMPTS
+        }
+        prefs.edit{
+            putInt(FAILED_ATTEMPT_KEY,attempts)
+        }
+        return attempts
+    }
+
+    fun resetFailedAttempts(context: Context){
+        preferences(context).edit { remove(FAILED_ATTEMPT_KEY).remove(LOCK_UNTIL_KEY) }
     }
 
     fun savePin(context: Context, pin: String) {

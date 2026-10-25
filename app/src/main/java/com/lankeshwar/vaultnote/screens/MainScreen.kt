@@ -1,6 +1,8 @@
 package com.lankeshwar.vaultnote.screens
 
 import android.content.Intent
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -22,6 +24,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.lankeshwar.vaultnote.data.Note
+import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 
 private object Routes {
@@ -33,8 +36,10 @@ private object Routes {
     const val SETTINGS = "settings"
 }
 
+@RequiresApi(Build.VERSION_CODES.R)
 @Composable
-fun MainScreen() {
+fun MainScreen(selectTheme: AppTheme? = null,
+               onThemeChange: (AppTheme) -> Unit = {}) {
     val notesViewModel: NotesViewModel = hiltViewModel()
     val navController = rememberNavController()
     val backstackEntry by navController.currentBackStackEntryAsState()
@@ -176,7 +181,8 @@ fun MainScreen() {
                 )
             }
             composable(Routes.SETTINGS) {
-                Text("Settings", Modifier.padding(20.dp), style = MaterialTheme.typography.headlineMedium)
+
+                SettingsScreen(onThemeChange = onThemeChange)
             }
         }
     }

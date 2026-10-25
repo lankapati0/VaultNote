@@ -11,13 +11,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,14 +29,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lankeshwar.vaultnote.Utils.BiometricHelper
 import com.lankeshwar.vaultnote.Utils.PinManager
 import com.lankeshwar.vaultnote.data.Note
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 
 @RequiresApi(Build.VERSION_CODES.R)
 @Composable
@@ -45,6 +56,7 @@ fun PrivateNotesScreen(
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     val activity = context as? FragmentActivity
 
@@ -57,6 +69,30 @@ fun PrivateNotesScreen(
         mutableStateOf(!PinManager.hasPin(context))
     }
     var pinError by remember { mutableStateOf("") }
+    var lockRemainingMs by remember {
+        mutableLongStateOf(PinManager.remainingLockTime(context))
+    }
+
+    LaunchedEffect(lockRemainingMs) {
+        while (lockRemainingMs > 0L){
+            delay(1000L)
+            lockRemainingMs = PinManager.remainingLockTime(context)
+        }
+    }
+
+    DisposableEffect (Unit){
+        val observer = LifecycleEventObserver {_, event ->
+            if(event == Lifecycle.Event.ON_STOP){
+                isUnlocked = false
+                pin = ""
+                confirmPin = ""
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver (observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     if(!isUnlocked){
         Column(
@@ -74,6 +110,9 @@ fun PrivateNotesScreen(
                 },
                 label = {Text("Enter 4-6 digit PIN")},
                 visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.NumberPassword
+                ),
                 singleLine = true
                 )
 
@@ -98,6 +137,10 @@ fun PrivateNotesScreen(
             Button(
                 onClick = {
                     when {
+                        lockRemainingMs > 0L -> {
+                            pinError = "Too many attempts. Try again later."
+                        }
+
                         pin.length !in 4..6 -> {
                             pinError = "PIN must contain 4–6 digits"
                         }
@@ -108,6 +151,7 @@ fun PrivateNotesScreen(
 
                         isSettingPin -> {
                             PinManager.savePin(context, pin)
+                            PinManager.resetFailedAttempts(context)
                             isSettingPin = false
                             isUnlocked = true
                             pin = ""
@@ -115,17 +159,28 @@ fun PrivateNotesScreen(
                         }
 
                         PinManager.verifyPin(context, pin) -> {
+                            PinManager.resetFailedAttempts(context)
                             isUnlocked = true
                             pin = ""
                         }
 
                         else -> {
-                            pinError = "Incorrect PIN"
+                            val attempts = PinManager.recordFailedAttempt(context)
+                            lockRemainingMs = PinManager.remainingLockTime(context)
+
+                            pinError = if (lockRemainingMs > 0L){
+                                "Too many attempts. Try again in 30 seconds"
+                            } else {
+                                "Incorrect PIN. Failed attempts: $attempts of 5"
+                            }
                             pin = ""
 
                         }
                     }
-                }
+
+                },
+                enabled = isSettingPin || lockRemainingMs <= 0L
+
             ) {
                 Text(if(isSettingPin) "Save PIN" else "Unlock")
             }
@@ -150,6 +205,15 @@ fun PrivateNotesScreen(
     }
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text(text = "🔒 Private Notes", style = MaterialTheme.typography.headlineMedium)
+
+        OutlinedTextField(value = title,
+            onValueChange = {title = it},
+            label = {Text("Note title")},
+            modifier = Modifier.fillMaxWidth()
+                .padding(top = 8.dp),
+            singleLine = true
+
+            )
 
         OutlinedTextField(value = content,
             onValueChange = {content = it},
