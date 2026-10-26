@@ -30,6 +30,7 @@ import com.lankeshwar.vaultnote.screens.SettingSecurity.ChangePinScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.FingerprintUnlockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.PrivacySecurityScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.RecentlyDeletedScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.TagManagementScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 
@@ -46,6 +47,7 @@ private object Routes {
     const val APP_LOCK = "app_lock"
     const val APP_INFO = "app_info"
     const val RECENTLY_DELETED = "recently_deleted"
+    const val TAG_MANAGEMENT = "tag_management"
 }
 
 @RequiresApi(Build.VERSION_CODES.R)
@@ -171,6 +173,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                 val note = selectedNote
                 if(note != null){
                     NoteDetailScreen(
+                        noteId = note.id,
                         title = note.title,
                         content = note.preview,
                         date = note.date,
@@ -213,6 +216,9 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     },
                     onRecentlyDeletedClick = {
                         navController.navigate(Routes.RECENTLY_DELETED)
+                    },
+                    onManageTagsClick = {
+                        navController.navigate(Routes.TAG_MANAGEMENT)
                     }
                 )
 
@@ -248,6 +254,11 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         navController.popBackStack()
                     }
                 )
+            }
+            composable(Routes.TAG_MANAGEMENT){
+                TagManagementScreen(onBack = {
+                    navController.popBackStack()
+                })
             }
         }
     }

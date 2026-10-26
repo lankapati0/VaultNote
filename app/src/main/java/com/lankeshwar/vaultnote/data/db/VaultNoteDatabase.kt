@@ -9,13 +9,13 @@ import androidx.sqlite.driver.SupportSQLiteConnection
 import androidx.sqlite.execSQL
 
 @Database(
-    entities = [NoteEntity::class],
-    version = 5,
+    entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class],
+    version = 8,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
     abstract fun noteDao(): NoteDao
-
+    abstract fun tagDao(): TagDao
     companion object {
 
         val MIGRATION_1_3 = object : Migration(1, 3) {
@@ -51,6 +51,88 @@ abstract class VaultNoteDatabase: RoomDatabase() {
                 )
             }
         }
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+
+                db.execSQL(
+                    """
+            CREATE TABLE IF NOT EXISTS `tags` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `name` TEXT NOT NULL
+            )
+            """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+            CREATE TABLE IF NOT EXISTS `note_tag_cross_ref` (
+                `noteId` INTEGER NOT NULL,
+                `tagId` INTEGER NOT NULL,
+                PRIMARY KEY(`noteId`, `tagId`)
+            )
+            """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Merge duplicate tag assignments before removing duplicate tags.
+                db.execSQL(
+                    """
+            INSERT OR IGNORE INTO note_tag_cross_ref (noteId, tagId)
+            SELECT ref.noteId, (
+                SELECT MIN(t2.id)
+                FROM tags t2
+                JOIN tags original ON original.id = ref.tagId
+                WHERE t2.name = original.name
+            )
+            FROM note_tag_cross_ref ref
+            """.trimIndent()
+                )
+
+                // Remove assignments linked to duplicate tag records.
+                db.execSQL(
+                    """
+            DELETE FROM note_tag_cross_ref
+            WHERE tagId NOT IN (
+                SELECT MIN(id) FROM tags GROUP BY name
+            )
+            """.trimIndent()
+                )
+
+                // Keep one tag record for each name.
+                db.execSQL(
+                    """
+            DELETE FROM tags
+            WHERE id NOT IN (
+                SELECT MIN(id) FROM tags GROUP BY name
+            )
+            """.trimIndent()
+                )
+
+                // Prevent duplicate tag names.
+                db.execSQL(
+                    """
+            CREATE UNIQUE INDEX IF NOT EXISTS index_tags_name
+            ON tags(name)
+            """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+            ALTER TABLE tags
+            ADD COLUMN colorHex TEXT NOT NULL DEFAULT '#64B5F6'
+            """.trimIndent()
+                )
+            }
+        }
+
+
 
     }
 

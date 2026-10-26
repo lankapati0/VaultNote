@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.lankeshwar.vaultnote.data.NotesRepository
 import com.lankeshwar.vaultnote.data.db.NoteDao
+import com.lankeshwar.vaultnote.data.db.TagDao
 import com.lankeshwar.vaultnote.data.db.VaultNoteDatabase
 import dagger.Module
 import dagger.Provides
@@ -25,7 +26,9 @@ object DatabaseModule {
             VaultNoteDatabase::class.java,
             "vaultnote_database"
         )
-            .addMigrations(VaultNoteDatabase.MIGRATION_1_3, VaultNoteDatabase.MIGRATION_2_3,VaultNoteDatabase.MIGRATION_3_4,VaultNoteDatabase.MIGRATION_4_5)
+            .addMigrations(VaultNoteDatabase.MIGRATION_1_3, VaultNoteDatabase.MIGRATION_2_3,VaultNoteDatabase.MIGRATION_3_4,VaultNoteDatabase.MIGRATION_4_5,
+                VaultNoteDatabase.MIGRATION_5_6,VaultNoteDatabase.MIGRATION_6_7,
+                VaultNoteDatabase.MIGRATION_7_8)
             .build()
     }
 
@@ -34,6 +37,11 @@ object DatabaseModule {
         database: VaultNoteDatabase
     ): NoteDao {
         return database.noteDao()
+    }
+
+    @Provides
+    fun provideTagDao(database: VaultNoteDatabase): TagDao {
+        return database.tagDao()
     }
 
     fun provideNotesRepository(noteDao: NoteDao): NotesRepository{

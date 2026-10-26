@@ -1,10 +1,12 @@
 package com.lankeshwar.vaultnote.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PushPin
@@ -16,9 +18,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,10 +31,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.lankeshwar.vaultnote.viewmodels.TagViewModel
+import androidx.core.graphics.toColorInt
 
 
 @Composable
-fun NoteCard(title: String, preview: String,date: String,onClick: () -> Unit, onDelete: () -> Unit,
+fun NoteCard(noteId:Int,title: String, preview: String,date: String,onClick: () -> Unit, onDelete: () -> Unit,
              onTogglePin:() -> Unit,
              onFavoritePin:() -> Unit,isPinned: Boolean,
              isFavorite: Boolean) {
@@ -38,6 +45,9 @@ fun NoteCard(title: String, preview: String,date: String,onClick: () -> Unit, on
     var showDeleteDialog by remember {
         mutableStateOf(false)
     }
+
+    val tagViewModel: TagViewModel = hiltViewModel()
+    val assignedTags by tagViewModel.getTagsForNote(noteId).collectAsState(initial = emptyList())
 
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -58,6 +68,24 @@ fun NoteCard(title: String, preview: String,date: String,onClick: () -> Unit, on
                     modifier = Modifier.padding(top = 6.dp),
                     style = MaterialTheme.typography.bodyMedium,
                 )
+
+                if(assignedTags.isNotEmpty()){
+                    Row(modifier=Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)){
+
+                        assignedTags.forEach { tag ->
+                            Surface(shape = RoundedCornerShape(50),
+                                color = Color(tag.colorHex.toColorInt())) {
+                                Text(text = tag.name,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            }
+                        }
+
+
+                    }
+                }
+
                 Text(
                     text = date,
                     modifier = Modifier.padding(top = 10.dp),

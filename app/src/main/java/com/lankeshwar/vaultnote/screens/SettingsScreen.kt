@@ -32,7 +32,8 @@ import com.lankeshwar.vaultnote.theme.ThemePreferences
 fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
                    onPrivacySecurityClick: ()-> Unit,
                    onAboutClick:()-> Unit,
-                   onRecentlyDeletedClick: () -> Unit) {
+                   onRecentlyDeletedClick: () -> Unit,
+                   onManageTagsClick:()-> Unit) {
 
     var showAppearanceDialog by remember {
         mutableStateOf(false)
@@ -84,7 +85,13 @@ fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
             title = "Recently Deleted",
             onClick = onRecentlyDeletedClick,
             subtitle = "",
-            icon = "\u21BA"
+            icon = ""
+        )
+        SettingsItem(
+            title = "Manage Tags",
+            subtitle = "",
+            icon = "",
+            onClick = onManageTagsClick
         )
     }
 

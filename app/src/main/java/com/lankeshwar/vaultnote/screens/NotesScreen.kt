@@ -81,6 +81,7 @@ fun NotesScreen(
                 items(filteredNotes.size){ index ->
                     val note = filteredNotes[index]
                     NoteCard(
+                        noteId = note.id,
                         title = note.title,
                         preview = note.preview,
                         date = note.date,

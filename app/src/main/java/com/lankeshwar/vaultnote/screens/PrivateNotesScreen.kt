@@ -269,6 +269,7 @@ fun PrivateNotesScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(privateNotes, key = {it.id}){note ->
                     NoteCard(
+                        noteId = note.id,
                         title = note.title,
                         preview = note.preview,
                         date = note.date,
