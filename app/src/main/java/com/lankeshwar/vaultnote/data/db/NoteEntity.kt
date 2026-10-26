@@ -12,5 +12,11 @@ data class NoteEntity(
     val date: String,
 
     @ColumnInfo(defaultValue = "0")
-    val isPrivate:Boolean = false
+    val isPinned:Boolean = false,
+    @ColumnInfo(defaultValue = "0")
+    val isFavorite: Boolean = false,
+    @ColumnInfo(defaultValue = "0")
+    val isPrivate:Boolean = false,
+    @ColumnInfo(defaultValue = "0")
+    val isDeleted: Boolean = false
 )

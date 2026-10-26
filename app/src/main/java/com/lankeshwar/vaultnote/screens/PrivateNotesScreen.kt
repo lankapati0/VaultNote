@@ -38,6 +38,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lankeshwar.vaultnote.Utils.AppLockPreferences
 import com.lankeshwar.vaultnote.Utils.BiometricHelper
 import com.lankeshwar.vaultnote.Utils.BiometricPreferences
@@ -53,7 +54,7 @@ fun PrivateNotesScreen(
     notesViewModel: NotesViewModel = hiltViewModel(),
     onNoteClick: (Note) -> Unit
 ){
-    val privateNotes by notesViewModel.privateNotesFlow.collectAsState()
+    val privateNotes by notesViewModel.privateNotesFlow.collectAsStateWithLifecycle()
 
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
@@ -112,7 +113,9 @@ fun PrivateNotesScreen(
 
     if(!isUnlocked){
         Column(
-            modifier = Modifier.padding(24.dp).fillMaxSize(),
+            modifier = Modifier
+                .padding(24.dp)
+                .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -218,13 +221,16 @@ fun PrivateNotesScreen(
         }
         return
     }
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .padding(16.dp)) {
         Text(text = "🔒 Private Notes", style = MaterialTheme.typography.headlineMedium)
 
         OutlinedTextField(value = title,
             onValueChange = {title = it},
             label = {Text("Note title")},
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
                 .padding(top = 8.dp),
             singleLine = true
 
@@ -263,11 +269,15 @@ fun PrivateNotesScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(privateNotes, key = {it.id}){note ->
                     NoteCard(
-                      title = note.title,
+                        title = note.title,
                         preview = note.preview,
                         date = note.date,
-                        onClick = {onNoteClick(note)},
-                        onDelete = {notesViewModel.deleteNotes(note)}
+                        onClick = { onNoteClick(note) },
+                        onDelete = { notesViewModel.deleteNotes(note) },
+                        onTogglePin = { notesViewModel.togglePin(note) },
+                        onFavoritePin = { notesViewModel.toggleFavorite(note) },
+                        isPinned = note.isPinned,
+                        isFavorite = note.isFavorite
                     )
                 }
             }

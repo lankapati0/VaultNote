@@ -31,7 +31,8 @@ import com.lankeshwar.vaultnote.theme.ThemePreferences
 @Composable
 fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
                    onPrivacySecurityClick: ()-> Unit,
-                   onAboutClick:()-> Unit) {
+                   onAboutClick:()-> Unit,
+                   onRecentlyDeletedClick: () -> Unit) {
 
     var showAppearanceDialog by remember {
         mutableStateOf(false)
@@ -78,6 +79,12 @@ fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
             subtitle = "App information and version",
             icon = "ℹ️",
             onClick = onAboutClick
+        )
+        SettingsItem(
+            title = "Recently Deleted",
+            onClick = onRecentlyDeletedClick,
+            subtitle = "",
+            icon = "\u21BA"
         )
     }
 

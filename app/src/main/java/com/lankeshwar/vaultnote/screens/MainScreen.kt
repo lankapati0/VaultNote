@@ -29,6 +29,7 @@ import com.lankeshwar.vaultnote.screens.SettingSecurity.AppLockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.ChangePinScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.FingerprintUnlockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.PrivacySecurityScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.RecentlyDeletedScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 
@@ -44,6 +45,7 @@ private object Routes {
     const val FINGERPRINT_UNLOCK = "fingerprint_unlock"
     const val APP_LOCK = "app_lock"
     const val APP_INFO = "app_info"
+    const val RECENTLY_DELETED = "recently_deleted"
 }
 
 @RequiresApi(Build.VERSION_CODES.R)
@@ -135,6 +137,15 @@ fun MainScreen(selectTheme: AppTheme? = null,
                 )
             }
 
+            composable(Routes.RECENTLY_DELETED) {
+                RecentlyDeletedScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                )
+            }
+
             composable (Routes.EDIT_NOTE){
                 val note = selectedNote
                 if (note != null){
@@ -155,6 +166,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     )
                 }
             }
+
             composable(Routes.NOTE_DETAIL){
                 val note = selectedNote
                 if(note != null){
@@ -198,6 +210,9 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     },
                     onAboutClick = {
                         navController.navigate(Routes.APP_INFO)
+                    },
+                    onRecentlyDeletedClick = {
+                        navController.navigate(Routes.RECENTLY_DELETED)
                     }
                 )
 

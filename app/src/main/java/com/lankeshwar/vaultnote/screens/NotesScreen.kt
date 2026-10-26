@@ -66,7 +66,9 @@ fun NotesScreen(
 
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = {notesViewModel.updateSearchQuery(it)},
+                onValueChange = {query ->
+                    notesViewModel.updateSearchQuery(query)
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = {Text("Search notes")},
                 singleLine = true
@@ -87,7 +89,15 @@ fun NotesScreen(
                         },
                         onClick = {
                             onEditNote(note)
-                        }
+                        },
+                        onTogglePin = {
+                            notesViewModel.togglePin(note)
+                        },
+                        onFavoritePin = {
+                            notesViewModel.toggleFavorite(note)
+                        },
+                        isPinned = note.isPinned,
+                        isFavorite = note.isFavorite
                     )
                 }
             }

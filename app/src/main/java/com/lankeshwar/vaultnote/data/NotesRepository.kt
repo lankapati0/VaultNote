@@ -36,4 +36,29 @@ class NotesRepository @Inject constructor(
         return noteDao.getPrivateNotes()
     }
 
+    suspend fun updatePinnedStatus(noteId: Int,isPinned: Boolean){
+        noteDao.updatePinnedStatus(noteId,isPinned)
+    }
+
+    suspend fun updateFavoriteStatus(noteId: Int,isFavorite: Boolean){
+        noteDao.updateFavoriteStatus(noteId,isFavorite)
+    }
+
+    fun getRecentlyDeletedNotes(): Flow<List<NoteEntity>> =
+        noteDao.getRecentlyDeletedNotes()
+
+    suspend fun moveToRecentlyDeleted(noteId: Int) {
+        noteDao.moveToRecentlyDeleted(noteId)
+    }
+
+    suspend fun restoreNote(noteId: Int) {
+        noteDao.restoreNote(noteId)
+    }
+
+    suspend fun permanentlyDeleteNote(noteId: Int) {
+        noteDao.permanentlyDeleteNote(noteId)
+    }
+
+
+
 }

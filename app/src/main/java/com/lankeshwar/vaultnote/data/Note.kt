@@ -5,5 +5,7 @@ data class Note(
     val title: String,
     val preview: String,
     val date: String,
+    val isPinned: Boolean,
+    val isFavorite: Boolean,
     val isPrivate: Boolean = false
 )

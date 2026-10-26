@@ -38,11 +38,17 @@ class NotesViewModel @Inject constructor(
                     title = entity.title,
                     preview = entity.preview,
                     date = entity.date,
-                    isPrivate = entity.isPrivate
+                    isPrivate = entity.isPrivate,
+                    isPinned = entity.isPinned,
+                    isFavorite = entity.isFavorite
                 )
             }.filter { note ->
                 note.title.contains(query, ignoreCase = true) || note.preview.contains(query, ignoreCase = true)
-            }
+            }.sortedWith (
+                compareByDescending<Note> {it.isPinned  }
+                    .thenByDescending { it.id }
+            )
+
         }
         .stateIn(
             scope = viewModelScope,
@@ -50,25 +56,55 @@ class NotesViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
-    val privateNotesFlow: StateFlow<List<Note>> = repository.getPrivateNotes()
-        .combine(searchQueryFlow){ notes,query ->
-            notes.filter { note ->
-                note.title.contains(query, ignoreCase = true) || note.preview.contains(query, ignoreCase = true)
-            }
-        }.map { notes ->
-            notes.map {entity ->
-                Note(
-                    id = entity.id,
-                    title = entity.title,
-                    preview = entity.preview,
-                    date = entity.date,
-                    isPrivate = entity.isPrivate
+    val recentlyDeletedFlow: StateFlow<List<Note>> =
+        repository.getRecentlyDeletedNotes()
+            .map { entities ->
+                entities.map { entity ->
+                    Note(
+                        id = entity.id,
+                        title = entity.title,
+                        preview = entity.preview,
+                        date = entity.date,
+                        isPrivate = entity.isPrivate,
+                        isPinned = entity.isPinned,
+                        isFavorite = entity.isFavorite
                     )
+                }
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000),
-            emptyList())
-/*    val filteredNotes: List<Note>
-        get() = notes.value*/
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                emptyList()
+            )
+
+    val privateNotesFlow: StateFlow<List<Note>> =
+        repository.getPrivateNotes()
+            .map { entities ->
+                entities.map { entity ->
+                    Note(
+                        id = entity.id,
+                        title = entity.title,
+                        preview = entity.preview,
+                        date = entity.date,
+                        isPrivate = entity.isPrivate,
+                        isFavorite = entity.isFavorite,
+                        isPinned = entity.isPinned
+                    )
+                }
+            }
+            .combine(searchQueryFlow) { notes, query ->
+                notes.filter { note ->
+                    note.title.contains(query, ignoreCase = true) ||
+                            note.preview.contains(query, ignoreCase = true)
+                }
+            }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                emptyList()
+            )
+
+
 
     val notesFlow = notes
     fun updateSearchQuery(query: String){
@@ -94,7 +130,7 @@ class NotesViewModel @Inject constructor(
 
     fun deleteNotes(note:Note){
         viewModelScope.launch {
-            repository.deleteNote(note.id)
+            repository.moveToRecentlyDeleted(note.id)
         }
     }
 
@@ -115,7 +151,38 @@ class NotesViewModel @Inject constructor(
                 )
             )
         }
+    }
 
+    fun togglePin(note: Note){
+        viewModelScope.launch {
+            val newPinnedState = !note.isPinned
+
+            repository.updatePinnedStatus(
+                noteId = note.id,
+                isPinned = newPinnedState
+            )
+        }
+    }
+
+    fun toggleFavorite(note:Note){
+        viewModelScope.launch {
+            repository.updateFavoriteStatus(
+                noteId = note.id,
+                isFavorite = !note.isFavorite
+            )
+        }
+    }
+
+    fun restoreNote(note: Note){
+        viewModelScope.launch {
+            repository.restoreNote(note.id)
+        }
+    }
+
+    fun permanentlyDeleteNote(note: Note){
+        viewModelScope.launch {
+            repository.permanentlyDeleteNote(note.id)
+        }
     }
 
 }
