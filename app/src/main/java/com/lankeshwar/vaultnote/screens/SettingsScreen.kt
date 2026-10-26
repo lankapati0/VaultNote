@@ -29,7 +29,9 @@ import com.lankeshwar.vaultnote.theme.ThemePreferences
 
 
 @Composable
-fun SettingsScreen(onThemeChange:(AppTheme) -> Unit) {
+fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
+                   onPrivacySecurityClick: ()-> Unit,
+                   onAboutClick:()-> Unit) {
 
     var showAppearanceDialog by remember {
         mutableStateOf(false)
@@ -68,18 +70,14 @@ fun SettingsScreen(onThemeChange:(AppTheme) -> Unit) {
             title = "Privacy & Security",
             subtitle = "Manage your private notes and screen lock",
             icon = "🔐",
-            onClick = {
-                // We'll implement this later.
-            }
+            onClick = onPrivacySecurityClick
         )
 
         SettingsItem(
             title = "About VaultNote",
             subtitle = "App information and version",
             icon = "ℹ️",
-            onClick = {
-                // We'll implement this later.
-            }
+            onClick = onAboutClick
         )
     }
 

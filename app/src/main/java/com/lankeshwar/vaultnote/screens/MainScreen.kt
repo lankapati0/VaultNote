@@ -24,6 +24,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.lankeshwar.vaultnote.data.Note
+import com.lankeshwar.vaultnote.screens.SettingSecurity.AppInfoScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.AppLockScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.ChangePinScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.FingerprintUnlockScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.PrivacySecurityScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 
@@ -34,6 +39,11 @@ private object Routes {
     const val NOTE_DETAIL = "note_detail"
     const val PRIVATE = "private"
     const val SETTINGS = "settings"
+    const val PRIVACY_SECURITY = "privacy_security"
+    const val CHANGE_PIN = "change_pin"
+    const val FINGERPRINT_UNLOCK = "fingerprint_unlock"
+    const val APP_LOCK = "app_lock"
+    const val APP_INFO = "app_info"
 }
 
 @RequiresApi(Build.VERSION_CODES.R)
@@ -182,7 +192,47 @@ fun MainScreen(selectTheme: AppTheme? = null,
             }
             composable(Routes.SETTINGS) {
 
-                SettingsScreen(onThemeChange = onThemeChange)
+                SettingsScreen(onThemeChange = onThemeChange,
+                    onPrivacySecurityClick = {
+                        navController.navigate(Routes.PRIVACY_SECURITY)
+                    },
+                    onAboutClick = {
+                        navController.navigate(Routes.APP_INFO)
+                    }
+                )
+
+            }
+
+            composable(Routes.PRIVACY_SECURITY){
+                PrivacySecurityScreen(onPinClick = {
+                    navController.navigate(Routes.CHANGE_PIN)
+                },
+                onFingerprintClick = {
+                    navController.navigate(Routes.FINGERPRINT_UNLOCK)
+                },
+                onAppLockClick = {
+                    navController.navigate(Routes.APP_LOCK)
+                })
+            }
+
+            composable(Routes.CHANGE_PIN) {
+                ChangePinScreen(onBack = {
+                        navController.popBackStack()
+                })
+            }
+            composable(Routes.FINGERPRINT_UNLOCK) {
+                FingerprintUnlockScreen()
+            }
+
+            composable(Routes.APP_LOCK){
+                AppLockScreen()
+            }
+            composable(Routes.APP_INFO) {
+                AppInfoScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
             }
         }
     }

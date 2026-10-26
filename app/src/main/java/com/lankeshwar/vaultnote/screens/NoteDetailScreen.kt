@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -35,8 +36,11 @@ fun NoteDetailScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Row (modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically){
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -50,9 +54,11 @@ fun NoteDetailScreen(
                 modifier = Modifier.weight(1f)
             )
 
-            Button(onClick = onEdit,
-                modifier = Modifier.fillMaxWidth()){
-                Text("Edit Note")
+            IconButton(onClick = onEdit) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Edit Note"
+                )
             }
 
             IconButton(onClick = onShare) {

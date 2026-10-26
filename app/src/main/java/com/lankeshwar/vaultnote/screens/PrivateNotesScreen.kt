@@ -38,7 +38,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.lankeshwar.vaultnote.Utils.AppLockPreferences
 import com.lankeshwar.vaultnote.Utils.BiometricHelper
+import com.lankeshwar.vaultnote.Utils.BiometricPreferences
 import com.lankeshwar.vaultnote.Utils.PinManager
 import com.lankeshwar.vaultnote.data.Note
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
@@ -73,6 +75,14 @@ fun PrivateNotesScreen(
         mutableLongStateOf(PinManager.remainingLockTime(context))
     }
 
+    var fingerprintEnabled by remember {
+        mutableStateOf(BiometricPreferences.isFingerprintEnabled(context))
+    }
+
+    var appLockEnabled by remember {
+        mutableStateOf(AppLockPreferences.isAppLockEnabled(context))
+    }
+
     LaunchedEffect(lockRemainingMs) {
         while (lockRemainingMs > 0L){
             delay(1000L)
@@ -82,6 +92,12 @@ fun PrivateNotesScreen(
 
     DisposableEffect (Unit){
         val observer = LifecycleEventObserver {_, event ->
+            if(event == Lifecycle.Event.ON_RESUME){
+                fingerprintEnabled = BiometricPreferences.isFingerprintEnabled(context)
+
+                appLockEnabled = AppLockPreferences.isAppLockEnabled(context)
+            }
+
             if(event == Lifecycle.Event.ON_STOP){
                 isUnlocked = false
                 pin = ""
@@ -174,7 +190,6 @@ fun PrivateNotesScreen(
                                 "Incorrect PIN. Failed attempts: $attempts of 5"
                             }
                             pin = ""
-
                         }
                     }
 
@@ -184,7 +199,7 @@ fun PrivateNotesScreen(
             ) {
                 Text(if(isSettingPin) "Save PIN" else "Unlock")
             }
-            if(!isSettingPin && activity != null && BiometricHelper.canAuthenticate(activity)){
+            if(!isSettingPin && fingerprintEnabled && activity != null && BiometricHelper.canAuthenticate(activity)){
                 Button(
                     onClick = {
                         BiometricHelper.authenticate(activity,
