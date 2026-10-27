@@ -141,7 +141,8 @@ class NotesViewModel @Inject constructor(
     fun updateNote(note:Note,
                    title: String,
                    content: String,
-                   formattedContent:String = content){
+                   formattedContent:String = content,
+                   onComplete:(()-> Unit)? = null){
         if(title.isBlank() && content.isBlank()) return
 
         viewModelScope.launch {
@@ -157,6 +158,7 @@ class NotesViewModel @Inject constructor(
                     isFavorite = note.isFavorite,
                 )
             )
+            onComplete?.invoke()
         }
     }
 

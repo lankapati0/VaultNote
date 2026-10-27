@@ -165,6 +165,15 @@ fun MainScreen(selectTheme: AppTheme? = null,
                             )
                             navController.popBackStack()
                         },
+                        onAutoSave = {title,content, formattedContent,onComplete ->
+                            notesViewModel.updateNote(
+                                note = note,
+                                title = title,
+                                content = content,
+                                formattedContent = formattedContent,
+                                onComplete = onComplete
+                            )
+                        },
                         onCancel = {
                             navController.popBackStack()
                         }

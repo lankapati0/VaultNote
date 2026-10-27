@@ -22,6 +22,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +43,8 @@ import androidx.compose.ui.util.fastCoerceAtLeast
 import com.lankeshwar.vaultnote.Utils.NoteEditorUtils
 import com.lankeshwar.vaultnote.Utils.NoteEditorUtils.insertBullet
 import com.lankeshwar.vaultnote.Utils.RichTextUtils
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 
 @Composable
@@ -50,6 +53,7 @@ fun EditNoteScreen(
     initialContent: String,
     initialFormattedContent: String,
     onSave: (String, String, String) -> Unit,
+    onAutoSave: (String, String, String, () -> Unit) -> Unit,
     onCancel: () -> Unit
 ) {
     var title by remember(initialTitle) {
@@ -66,7 +70,18 @@ fun EditNoteScreen(
         )
     }
 
+    var autoSaveStatus by remember {mutableStateOf("")}
+    var lastSavedTitle by remember(initialTitle) {
+        mutableStateOf(initialTitle)
+    }
 
+    var lastSavedContent by remember(initialContent) {
+        mutableStateOf(initialContent)
+    }
+
+    var lastSavedHtml by remember(initialFormattedContent) {
+        mutableStateOf(initialFormattedContent)
+    }
     fun applyStyle(style: SpanStyle) {
         val start = minOf(content.selection.start, content.selection.end)
         val end = maxOf(content.selection.start, content.selection.end)
@@ -134,6 +149,38 @@ fun EditNoteScreen(
         )
     }
 
+    LaunchedEffect(title, content, markdownMode) {
+        if (title.isBlank() && content.text.isBlank()) {
+            autoSaveStatus = ""
+            return@LaunchedEffect
+        }
+
+        val savedHtml = if (markdownMode) {
+            RichTextUtils.markdownToHtml(content.text)
+        } else {
+            RichTextUtils.toHtml(content.annotatedString)
+        }
+
+        if (
+            title == lastSavedTitle &&
+            content.text == lastSavedContent &&
+            savedHtml == lastSavedHtml
+        ) {
+            return@LaunchedEffect
+        }
+
+        autoSaveStatus = "Unsaved changes"
+        delay(1000.milliseconds)
+
+        autoSaveStatus = "Saving…"
+
+        onAutoSave(title, content.text, savedHtml) {
+            lastSavedTitle = title
+            lastSavedContent = content.text
+            lastSavedHtml = savedHtml
+            autoSaveStatus = "Saved"
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -147,6 +194,10 @@ fun EditNoteScreen(
             text = "Edit Note",
             style = MaterialTheme.typography.headlineMedium
         )
+
+        Text(text=autoSaveStatus,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
