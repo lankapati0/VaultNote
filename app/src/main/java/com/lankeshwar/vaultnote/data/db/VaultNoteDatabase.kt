@@ -10,12 +10,13 @@ import androidx.sqlite.execSQL
 
 @Database(
     entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
     abstract fun noteDao(): NoteDao
     abstract fun tagDao(): TagDao
+    abstract fun noteDraftDao(): NoteDraftDao
     companion object {
 
         val MIGRATION_1_3 = object : Migration(1, 3) {
@@ -142,8 +143,24 @@ abstract class VaultNoteDatabase: RoomDatabase() {
                 )
             }
         }
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+            CREATE TABLE IF NOT EXISTS note_drafts (
+                draftId TEXT NOT NULL PRIMARY KEY,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                formattedContent TEXT NOT NULL,
+                isMarkdown INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL
+            )
+            """.trimIndent()
+                )
+            }
+        }
+
 
 
     }
-
 }

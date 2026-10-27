@@ -136,7 +136,23 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     },
                     onCancel = {
                         navController.popBackStack()
+                    },
+                    onAutoSave = { title,content, formattedContent, isMarkdown ->
+                        notesViewModel.saveDraft(
+                            draftId = "new_note",
+                            title = title,
+                            content = content,
+                            formattedContent = formattedContent,
+                            isMarkdown = isMarkdown
+                        )
+                    },
+                    onLoadDraft = {
+                        notesViewModel.getDraft("new_note")
+                    },
+                    onClearDraft = {
+                        notesViewModel.deleteDraft("new_note")
                     }
+
                 )
             }
 

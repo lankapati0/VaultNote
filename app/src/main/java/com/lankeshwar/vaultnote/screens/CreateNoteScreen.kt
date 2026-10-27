@@ -1,6 +1,5 @@
 package com.lankeshwar.vaultnote.screens
 
-import android.graphics.Outline
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +18,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,15 +41,56 @@ import androidx.compose.ui.util.fastCoerceAtLeast
 import com.lankeshwar.vaultnote.Utils.NoteEditorUtils
 import com.lankeshwar.vaultnote.Utils.NoteEditorUtils.insertBullet
 import com.lankeshwar.vaultnote.Utils.RichTextUtils
+import com.lankeshwar.vaultnote.data.db.NoteDraftEntity
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun CreateNoteScreen(
     onSave: (String, String, String)-> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onAutoSave: (String, String, String, Boolean) -> Unit,
+    onLoadDraft: suspend () -> NoteDraftEntity?,
+    onClearDraft: () -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf(TextFieldValue("")) }
     var markdownMode by remember { mutableStateOf(false) }
+
+    var isDraftLoaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val draft = onLoadDraft()
+
+        if(draft != null){
+            title = draft.title
+            markdownMode = draft.isMarkdown
+            content = if(draft.isMarkdown){
+                TextFieldValue(draft.content)
+            } else if (draft.formattedContent.isNotBlank()){
+                RichTextUtils.fromHtml(draft.formattedContent)
+            } else {
+                TextFieldValue(draft.content)
+            }
+        }
+        isDraftLoaded = true
+    }
+
+    LaunchedEffect(title,content,markdownMode,isDraftLoaded) {
+        if(!isDraftLoaded) return@LaunchedEffect
+
+        if(title.isBlank() && content.text.isBlank()){
+            return@LaunchedEffect
+        }
+        delay(1000.milliseconds)
+        val savedHtml = if(markdownMode){
+            RichTextUtils.markdownToHtml(content.text)
+        } else {
+            RichTextUtils.toHtml(content.annotatedString)
+        }
+
+        onAutoSave(title,content.text,savedHtml, markdownMode)
+    }
 
     fun applyStyle(style: SpanStyle) {
         val start = minOf(content.selection.start, content.selection.end)

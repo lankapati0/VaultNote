@@ -10,6 +10,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.lifecycle.viewModelScope
 import com.lankeshwar.vaultnote.data.Note
+import com.lankeshwar.vaultnote.data.NoteDraftRepository
+import com.lankeshwar.vaultnote.data.db.NoteDraftEntity
 import com.lankeshwar.vaultnote.data.db.NoteEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,7 +24,8 @@ import kotlin.collections.emptyList
 
 @HiltViewModel
 class NotesViewModel @Inject constructor(
-    private val repository: NotesRepository
+    private val repository: NotesRepository,
+    private val draftRepository: NoteDraftRepository
 ): ViewModel() {
     val welcomeMessage:String
         get() = repository.getWelcomeMessage()
@@ -115,7 +118,7 @@ class NotesViewModel @Inject constructor(
         searchQueryFlow.value = query
     }
 
-    fun addNote(title: String, content: String, isPrivate: Boolean = false,formattedContent: String = content){
+    fun addNote(title: String, content: String, isPrivate: Boolean = false,formattedContent: String = content,onComplete: (() -> Unit)?){
         if(title.isBlank() && content.isBlank()) return
 
         viewModelScope.launch {
@@ -129,6 +132,7 @@ class NotesViewModel @Inject constructor(
                     isPrivate = isPrivate
                 )
             )
+            onComplete?.invoke()
         }
     }
 
@@ -191,6 +195,35 @@ class NotesViewModel @Inject constructor(
     fun permanentlyDeleteNote(note: Note){
         viewModelScope.launch {
             repository.permanentlyDeleteNote(note.id)
+        }
+    }
+
+    fun saveDraft(draftId: String,
+                  title: String,
+                  content: String,
+                  formattedContent: String,
+                  isMarkdown: Boolean){
+        viewModelScope.launch {
+            draftRepository.saveDraft(
+                NoteDraftEntity(
+                    draftId = draftId,
+                    title = title,
+                    content = content,
+                    formattedContent = formattedContent,
+                    isMarkdown = isMarkdown,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    suspend fun getDraft(draftId: String): NoteDraftEntity? {
+        return draftRepository.getDraft(draftId)
+    }
+
+    fun deleteDraft(draftId: String){
+        viewModelScope.launch {
+            draftRepository.deleteDraft(draftId)
         }
     }
 
