@@ -37,6 +37,7 @@ class NotesViewModel @Inject constructor(
                     id = entity.id,
                     title = entity.title,
                     preview = entity.preview,
+                    formattedContent = entity.formattedContent,
                     date = entity.date,
                     isPrivate = entity.isPrivate,
                     isPinned = entity.isPinned,
@@ -64,6 +65,7 @@ class NotesViewModel @Inject constructor(
                         id = entity.id,
                         title = entity.title,
                         preview = entity.preview,
+                        formattedContent = entity.formattedContent,
                         date = entity.date,
                         isPrivate = entity.isPrivate,
                         isPinned = entity.isPinned,
@@ -85,6 +87,7 @@ class NotesViewModel @Inject constructor(
                         id = entity.id,
                         title = entity.title,
                         preview = entity.preview,
+                        formattedContent = entity.formattedContent,
                         date = entity.date,
                         isPrivate = entity.isPrivate,
                         isFavorite = entity.isFavorite,
@@ -112,7 +115,7 @@ class NotesViewModel @Inject constructor(
         searchQueryFlow.value = query
     }
 
-    fun addNote(title: String, content: String, isPrivate: Boolean = false){
+    fun addNote(title: String, content: String, isPrivate: Boolean = false,formattedContent: String = content){
         if(title.isBlank() && content.isBlank()) return
 
         viewModelScope.launch {
@@ -121,6 +124,7 @@ class NotesViewModel @Inject constructor(
                     id= 0,
                     title = title.ifBlank { "Untitled Note" },
                     preview = content,
+                    formattedContent = formattedContent,
                     date = "Today",
                     isPrivate = isPrivate
                 )
@@ -137,7 +141,7 @@ class NotesViewModel @Inject constructor(
     fun updateNote(note:Note,
                    title: String,
                    content: String,
-                   ){
+                   formattedContent:String = content){
         if(title.isBlank() && content.isBlank()) return
 
         viewModelScope.launch {
@@ -146,8 +150,11 @@ class NotesViewModel @Inject constructor(
                     id = note.id,
                     title = title.ifBlank { "Untitled Note" },
                     preview = content,
+                    formattedContent = formattedContent,
                     date = note.date,
-                    isPrivate = note.isPrivate
+                    isPrivate = note.isPrivate,
+                    isPinned = note.isPinned,
+                    isFavorite = note.isFavorite,
                 )
             )
         }

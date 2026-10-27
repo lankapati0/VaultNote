@@ -272,6 +272,7 @@ fun PrivateNotesScreen(
                         noteId = note.id,
                         title = note.title,
                         preview = note.preview,
+                        formattedContent = note.formattedContent,
                         date = note.date,
                         onClick = { onNoteClick(note) },
                         onDelete = { notesViewModel.deleteNotes(note) },

@@ -10,6 +10,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -129,8 +130,8 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
             composable(route=Routes.CREATE_NOTE){
                 CreateNoteScreen(
-                    onSave = {title,content ->
-                        notesViewModel.addNote(title,content)
+                    onSave = {title,content,formattedContent ->
+                        notesViewModel.addNote(title,content,formattedContent=formattedContent)
                         navController.popBackStack()
                     },
                     onCancel = {
@@ -154,11 +155,13 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     EditNoteScreen(
                         initialTitle = note.title,
                         initialContent = note.preview,
-                        onSave = {title, content ->
+                        initialFormattedContent = note.formattedContent,
+                        onSave = {title, content,formattedContent ->
                             notesViewModel.updateNote(
                                 note = note,
                                 title = title,
-                                content = content
+                                content = content,
+                                formattedContent = formattedContent
                             )
                             navController.popBackStack()
                         },
@@ -170,12 +173,14 @@ fun MainScreen(selectTheme: AppTheme? = null,
             }
 
             composable(Routes.NOTE_DETAIL){
-                val note = selectedNote
+                val notes by notesViewModel.notesFlow.collectAsState()
+                val note = notes.find {it.id == selectedNote?.id} ?: selectedNote
                 if(note != null){
                     NoteDetailScreen(
                         noteId = note.id,
                         title = note.title,
                         content = note.preview,
+                        formattedContent = note.formattedContent,
                         date = note.date,
                         onBack = {
                             navController.popBackStack()

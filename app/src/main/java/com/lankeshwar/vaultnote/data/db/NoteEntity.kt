@@ -9,6 +9,8 @@ data class NoteEntity(
     val id:Int=0,
     val title:String,
     val preview: String,
+    @ColumnInfo(defaultValue = "")
+    val formattedContent: String = "",
     val date: String,
 
     @ColumnInfo(defaultValue = "0")

@@ -28,7 +28,7 @@ object DatabaseModule {
         )
             .addMigrations(VaultNoteDatabase.MIGRATION_1_3, VaultNoteDatabase.MIGRATION_2_3,VaultNoteDatabase.MIGRATION_3_4,VaultNoteDatabase.MIGRATION_4_5,
                 VaultNoteDatabase.MIGRATION_5_6,VaultNoteDatabase.MIGRATION_6_7,
-                VaultNoteDatabase.MIGRATION_7_8)
+                VaultNoteDatabase.MIGRATION_7_8, VaultNoteDatabase.MIGRATION_8_9)
             .build()
     }
 

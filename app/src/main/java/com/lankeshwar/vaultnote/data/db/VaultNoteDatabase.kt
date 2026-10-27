@@ -10,7 +10,7 @@ import androidx.sqlite.execSQL
 
 @Database(
     entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
@@ -132,6 +132,16 @@ abstract class VaultNoteDatabase: RoomDatabase() {
             }
         }
 
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+            ALTER TABLE notes
+            ADD COLUMN formattedContent TEXT NOT NULL DEFAULT ''
+            """.trimIndent()
+                )
+            }
+        }
 
 
     }

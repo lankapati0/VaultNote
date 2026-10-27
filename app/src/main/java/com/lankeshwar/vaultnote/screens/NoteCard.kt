@@ -30,16 +30,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lankeshwar.vaultnote.viewmodels.TagViewModel
 import androidx.core.graphics.toColorInt
+import com.lankeshwar.vaultnote.Utils.RichTextUtils
 
 
 @Composable
-fun NoteCard(noteId:Int,title: String, preview: String,date: String,onClick: () -> Unit, onDelete: () -> Unit,
+fun NoteCard(noteId:Int, title: String, preview: String, formattedContent: String, date: String, onClick: () -> Unit, onDelete: () -> Unit,
              onTogglePin:() -> Unit,
-             onFavoritePin:() -> Unit,isPinned: Boolean,
+             onFavoritePin:() -> Unit, isPinned: Boolean,
              isFavorite: Boolean) {
 
     var showDeleteDialog by remember {
@@ -64,9 +66,14 @@ fun NoteCard(noteId:Int,title: String, preview: String,date: String,onClick: () 
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = preview,
+                    text = if (formattedContent.isNotBlank()) {
+                        RichTextUtils.fromHtml(formattedContent).annotatedString
+                    } else {
+                        AnnotatedString(preview)
+                    },
                     modifier = Modifier.padding(top = 6.dp),
                     style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3
                 )
 
                 if(assignedTags.isNotEmpty()){

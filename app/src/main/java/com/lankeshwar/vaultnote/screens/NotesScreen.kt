@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lankeshwar.vaultnote.Utils.RichTextUtils
 import com.lankeshwar.vaultnote.data.Note
 
 @Composable
@@ -84,6 +85,7 @@ fun NotesScreen(
                         noteId = note.id,
                         title = note.title,
                         preview = note.preview,
+                        formattedContent = note.formattedContent,
                         date = note.date,
                         onDelete = {
                             notesViewModel.deleteNotes(note)

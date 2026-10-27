@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.lankeshwar.vaultnote.Utils.RichTextUtils
 import com.lankeshwar.vaultnote.viewmodels.TagViewModel
 
 @Composable
@@ -37,6 +38,7 @@ fun NoteDetailScreen(
     noteId:Int,
     title: String,
     content: String,
+    formattedContent: String,
     date: String,
     onBack:() -> Unit,
     onShare: () -> Unit,
@@ -89,7 +91,8 @@ fun NoteDetailScreen(
 
         Text(text=date, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-        Text(text=content, style = MaterialTheme.typography.bodyLarge)
+        Text(text= RichTextUtils.fromHtml(formattedContent).annotatedString, style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         HorizontalDivider()
 
@@ -154,7 +157,6 @@ fun NoteDetailScreen(
                                     }
                                 )
                             }
-
                         }
                     }
                 },
@@ -167,7 +169,6 @@ fun NoteDetailScreen(
                 }
             )
         }
-
     }
     Spacer(modifier = Modifier.padding(top = 16.dp))
 }

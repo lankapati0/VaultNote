@@ -4,8 +4,9 @@ data class Note(
     val id:Int = 0,
     val title: String,
     val preview: String,
+    val formattedContent: String = "",
     val date: String,
-    val isPinned: Boolean,
-    val isFavorite: Boolean,
+    val isPinned: Boolean = false,
+    val isFavorite: Boolean = false,
     val isPrivate: Boolean = false
 )
