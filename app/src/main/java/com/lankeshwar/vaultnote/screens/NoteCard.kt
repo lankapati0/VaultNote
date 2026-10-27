@@ -4,8 +4,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -29,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
@@ -99,45 +102,50 @@ fun NoteCard(noteId:Int, title: String, preview: String, formattedContent: Strin
                     style = MaterialTheme.typography.labelSmall,
                 )
             }
-            IconButton(
-                onClick = {
-                    onTogglePin()
+
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End){
+                IconButton(
+                    onClick = {
+                        onTogglePin()
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PushPin,
+                        contentDescription = if(isPinned) "Unpin note" else "Pin note",
+                        tint = if (isPinned) {
+                            Color(0xFFFFB300)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
                 }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PushPin,
-                    contentDescription = if(isPinned) "Unpin note" else "Pin note",
-                    tint = if (isPinned) {
-                        Color(0xFFFFB300)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
-            }
 
-            IconButton(onClick = onFavoritePin) {
-                Icon(
-                    imageVector = if (isFavorite) {
-                        Icons.Default.Star
-                    } else {
-                        Icons.Default.StarBorder
-                    },
-                    contentDescription = if (isFavorite) "Remove favorite" else "Add favorite",
-                    tint = if (isFavorite){
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
-            }
+                IconButton(onClick = onFavoritePin) {
+                    Icon(
+                        imageVector = if (isFavorite) {
+                            Icons.Default.Star
+                        } else {
+                            Icons.Default.StarBorder
+                        },
+                        contentDescription = if (isFavorite) "Remove favorite" else "Add favorite",
+                        tint = if (isFavorite){
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
 
-            IconButton(onClick = {
-                showDeleteDialog = true
-            }) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete note"
-                )
+                IconButton(onClick = {
+                    showDeleteDialog = true
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete note"
+                    )
+                }
+
             }
         }
     }

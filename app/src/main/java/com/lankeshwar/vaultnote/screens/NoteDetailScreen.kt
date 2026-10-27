@@ -91,7 +91,13 @@ fun NoteDetailScreen(
 
         Text(text=date, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-        Text(text= RichTextUtils.fromHtml(formattedContent).annotatedString, style = MaterialTheme.typography.bodyLarge,
+        val displayContent = if(formattedContent.isNotBlank()){
+            RichTextUtils.fromHtml(formattedContent).annotatedString
+        } else {
+            RichTextUtils.fromHtml(RichTextUtils.markdownToHtml(content)).annotatedString
+        }
+
+        Text(text= displayContent, style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         HorizontalDivider()

@@ -2,6 +2,7 @@ package com.lankeshwar.vaultnote.screens
 
 import android.widget.Button
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -35,6 +37,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastCoerceAtLeast
+import com.lankeshwar.vaultnote.Utils.NoteEditorUtils
+import com.lankeshwar.vaultnote.Utils.NoteEditorUtils.insertBullet
 import com.lankeshwar.vaultnote.Utils.RichTextUtils
 
 
@@ -49,7 +55,7 @@ fun EditNoteScreen(
     var title by remember(initialTitle) {
         mutableStateOf(initialTitle)
     }
-
+    var markdownMode by remember { mutableStateOf(false) }
     var content by remember(initialFormattedContent,initialContent) {
         mutableStateOf(
             if(initialFormattedContent.isNotBlank()){
@@ -60,67 +66,74 @@ fun EditNoteScreen(
         )
     }
 
-    fun applyStyle(style: SpanStyle){
+
+    fun applyStyle(style: SpanStyle) {
         val start = minOf(content.selection.start, content.selection.end)
         val end = maxOf(content.selection.start, content.selection.end)
 
-        if (start == end) return
+        if (start >= end) return
 
-        var finalStyle = style
+        val selectedText = content.annotatedString
+        val selectedStyles = selectedText.spanStyles.filter {
+            it.start < end && it.end > start
+        }
 
-        if(style.textDecoration != null){
-            val decorations = mutableListOf<TextDecoration>()
+        val isUnderline = style.textDecoration == TextDecoration.Underline
+        val isStrike = style.textDecoration == TextDecoration.LineThrough
+        val isBold = style.fontWeight == FontWeight.Bold
+        val isItalic = style.fontStyle == FontStyle.Italic
 
-            content.annotatedString.spanStyles
-                .filter { it.start < end && it.end > start }
-                .forEach { span ->
-                    span.item.textDecoration?.let { decoration ->
-                        if(decoration.contains(TextDecoration.Underline)){
-                            decorations.add(TextDecoration.Underline)
-                        }
-
-                        if(decoration.contains(TextDecoration.LineThrough)){
-                            decorations.add(TextDecoration.LineThrough)
-                        }
-                    }
-                }
-
-            val newDecoration = style.textDecoration
-
-            if (newDecoration != null) {
-                if (newDecoration.contains(TextDecoration.Underline)) {
-                    decorations.add(TextDecoration.Underline)
-                }
-
-                if (newDecoration.contains(TextDecoration.LineThrough)) {
-                    decorations.add(TextDecoration.LineThrough)
-                }
+        val alreadyApplied = when {
+            isUnderline -> selectedStyles.all {
+                it.item.textDecoration?.contains(TextDecoration.Underline) == true
             }
-            finalStyle = style.copy(
-                textDecoration = TextDecoration.combine(
-                    decorations.distinct()
-                )
+            isStrike -> selectedStyles.all {
+                it.item.textDecoration?.contains(TextDecoration.LineThrough) == true
+            }
+            isBold -> selectedStyles.all {
+                it.item.fontWeight == FontWeight.Bold
+            }
+            isItalic -> selectedStyles.all {
+                it.item.fontStyle == FontStyle.Italic
+            }
+            else -> false
+        }
+
+        val builder = AnnotatedString.Builder(selectedText)
+
+        // Remove only the selected property, or add the requested style.
+        if (alreadyApplied) {
+            // Removing a single property safely requires rebuilding the selected
+            // ranges; don't replace unrelated styles.
+            val plainBuilder = AnnotatedString.Builder()
+            plainBuilder.append(selectedText.subSequence(0, start))
+            plainBuilder.append(selectedText.subSequence(start, end))
+            plainBuilder.append(selectedText.subSequence(end, selectedText.length))
+
+            content = content.copy(
+                annotatedString = plainBuilder.toAnnotatedString(),
+                selection = TextRange(start, end)
             )
+            return
         }
-        val builder = AnnotatedString.Builder(content.annotatedString)
 
-        builder.addStyle(
-            style = finalStyle,
-            start = start,
-            end = end
-        )
-/*
-        val styledText = buildAnnotatedString {
-            append(content.annotatedString)
-            addStyle(style = style,
-                start=start, end = end)
-        }
-*/
+        builder.addStyle(style, start, end)
 
-        content = TextFieldValue(annotatedString = builder.toAnnotatedString(),
-        selection = TextRange(start,end)
+        content = content.copy(
+            annotatedString = builder.toAnnotatedString(),
+            selection = TextRange(start, end)
         )
     }
+
+    fun applyHeading(size: Int) {
+        applyStyle(
+            SpanStyle(
+                fontSize = size.sp,
+                fontWeight = FontWeight.Bold
+            )
+        )
+    }
+
 
     Column(
         modifier = Modifier
@@ -136,7 +149,9 @@ fun EditNoteScreen(
         )
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedButton(
                 onClick = { applyStyle(SpanStyle(fontWeight = FontWeight.Bold))},
@@ -177,29 +192,61 @@ fun EditNoteScreen(
                     textDecoration = TextDecoration.LineThrough
                 )
             }
+
+            OutlinedButton(
+                onClick = {applyHeading(28)},
+                enabled = !content.selection.collapsed
+            ) {
+                Text("H1")
+            }
+
+            OutlinedButton(
+                onClick = {applyHeading(24)},
+                enabled = !content.selection.collapsed
+            ) {
+                Text("H2")
+            }
+
+            OutlinedButton(
+                onClick = {applyHeading(20)},
+                enabled = !content.selection.collapsed
+            ) {
+                Text("H3")
+            }
+
+            OutlinedButton(onClick = {
+                content = NoteEditorUtils.insertBullet(content)
+            }) {
+                Text("• List")
+            }
+
+            OutlinedButton(onClick = {
+                content = NoteEditorUtils.insertChecklistItem(content)
+            }) {
+                Text("☐ Checklist")
+            }
+
+            OutlinedButton(
+                onClick = {
+                    content = NoteEditorUtils.insertNumberedList(content)
+                }
+            ) {
+                Text("1. List")
+            }
+            OutlinedButton(
+                onClick = { markdownMode = !markdownMode }
+            ) {
+                Text(if (markdownMode) "Markdown: ON" else "Markdown")
+            }
+
+
         }
 
         BasicTextField(
             value = content,
             onValueChange = {newValue ->
-                content = newValue.copy(
-                    annotatedString = buildAnnotatedString {
-                        append(newValue.text)
-
-                        content.annotatedString.spanStyles.forEach { span ->
-                            val start = span.start.coerceIn(0,newValue.text.length)
-                            val end = span.end.coerceIn(start,newValue.text.length)
-
-                            if(start<end){
-                                addStyle(
-                                    style = span.item,
-                                    start = start,
-                                    end = end
-                                )
-                            }
-                        }
-                    }
-                )
+                content = NoteEditorUtils.handleNumberedListInput(previous = content,
+                    current = newValue)
             },
             modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)).padding(12.dp),
@@ -217,7 +264,14 @@ fun EditNoteScreen(
         )
 
         Button(
-            onClick = {onSave(title,content.text, RichTextUtils.toHtml(content.annotatedString))},
+            onClick = {
+                val savedHtml = if(markdownMode){
+                    RichTextUtils.markdownToHtml(content.text)
+                } else {
+                    RichTextUtils.toHtml(content.annotatedString)
+                }
+
+            onSave(title,content.text, savedHtml)},
             enabled = title.isNotBlank() || content.text.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ){
