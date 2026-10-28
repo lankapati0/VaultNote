@@ -1,5 +1,6 @@
 package com.lankeshwar.vaultnote.screens
 
+import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,7 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -52,11 +52,11 @@ import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.items
-
+import com.lankeshwar.vaultnote.Utils.FileUtils
 
 @Composable
 fun CreateNoteScreen(
-    onSave: (String, String, String, List<Uri>)-> Unit,
+    onSave: (String, String, String, List<Uri>, List<Uri>)-> Unit,
     onCancel: () -> Unit,
     onAutoSave: (String, String, String, Boolean) -> Unit,
     onLoadDraft: suspend () -> NoteDraftEntity?,
@@ -73,12 +73,19 @@ fun CreateNoteScreen(
         mutableStateOf<List<Uri>>(emptyList())
     }
 
+    var selectedFileUris by remember {
+        mutableStateOf<List<Uri>>(emptyList())
+    }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
         selectedImageUris = selectedImageUris + uris
     }
 
+    val documentPickerLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetMultipleContents()) { uris ->
+        selectedImageUris = selectedImageUris + uris
+    }
     LaunchedEffect(Unit) {
         val draft = onLoadDraft()
 
@@ -294,7 +301,15 @@ fun CreateNoteScreen(
                 onClick = {
                     imagePickerLauncher.launch("image/*")
                 }
-            ) {     Text("🖼 Attach Images")
+            ) {
+                Text("🖼 Attach Images")
+            }
+            OutlinedButton(
+                onClick = {
+                    documentPickerLauncher.launch("*/*")
+                }
+            ) {
+                Text("📎 Attach Files")
             }
 
         }
@@ -317,10 +332,22 @@ fun CreateNoteScreen(
                         contentScale = ContentScale.Fit
                     )
                 }
-
-
             }
         }
+
+        if(selectedImageUris.isNotEmpty()){
+            Text(text="Attached Files", style = MaterialTheme.typography.titleMedium)
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                selectedImageUris.forEach { uri ->
+                    Text(
+                        text = "📎 ${FileUtils.getDisplayFileName(context, uri)}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+
 
         BasicTextField(
             value = content,
@@ -353,7 +380,7 @@ fun CreateNoteScreen(
                 }
 
 
-                onSave(title,content.text, savedHtml,selectedImageUris)},
+            onSave(title,content.text, savedHtml,selectedImageUris,selectedFileUris)},
             enabled = title.isNotBlank() || content.text.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -368,4 +395,6 @@ fun CreateNoteScreen(
             Text("Cancel")
         }
     }
+
+
 }

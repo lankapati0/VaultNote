@@ -131,12 +131,16 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
             composable(route=Routes.CREATE_NOTE){
                 CreateNoteScreen(
-                    onSave = {title,content,formattedContent,imageUris ->
+                    onSave = {title,content,formattedContent,imageUris, fileUris ->
                         notesViewModel.addNote(title,content,formattedContent=formattedContent,
                             onNoteSaved = { noteId ->
                                 notesViewModel.saveImageAttachments(
                                     noteId = noteId,
                                     imageUris = imageUris
+                                )
+                                notesViewModel.saveFileAttachments(
+                                    noteId = noteId,
+                                    fileUris = fileUris
                                 )
                             },
                             onComplete = {
@@ -183,18 +187,26 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         initialTitle = note.title,
                         initialContent = note.preview,
                         initialFormattedContent = note.formattedContent,
-                        onSave = {title, content,formattedContent ->
+                        onSave = {title, content,formattedContent,imageUris,fileUris ->
                             notesViewModel.updateNote(
                                 note = note,
                                 title = title,
                                 content = content,
                                 formattedContent = formattedContent,
                                 onComplete = {
+                                    notesViewModel.saveImageAttachments(
+                                        noteId = note.id.toLong(),
+                                        imageUris = imageUris
+                                    )
+                                    notesViewModel.saveFileAttachments(
+                                        noteId = note.id.toLong(),
+                                        fileUris = fileUris
+                                    )
+
                                     notesViewModel.deleteDraft("edit_note_${note.id}")
                                     navController.popBackStack()
                                 }
                             )
-                            navController.popBackStack()
                         },
                         onAutoSave = {title,content, formattedContent,onComplete ->
                             notesViewModel.updateNote(

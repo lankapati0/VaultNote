@@ -265,6 +265,32 @@ class NotesViewModel @Inject constructor(
         }
     }
 
+    fun saveFileAttachments(noteId:Long, fileUris:List<Uri>){
+        viewModelScope.launch {
+            fileUris.forEach { uri ->
+                try {
+                    val fileName = getAttachmentFileManager(uri)
+                    val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+
+                    val savedFile = attachmentFileManager.copyAttachment(uri=uri, originalFileName = fileName)
+
+                    attachmentRepository.addAttachment(
+                        NoteAttachmentEntity(
+                            noteId = noteId.toInt(),
+                            fileName = fileName,
+                            fileType = mimeType,
+                            filePath = savedFile.absolutePath
+                        )
+                    )
+                }catch (e: Exception){
+                    Log.e("NoteAttachments",
+                        "Failed to save document attachment",
+                        e)
+                }
+            }
+        }
+    }
+
     private fun getAttachmentFileManager(uri: Uri): String {
         var fileName:String? = null
 

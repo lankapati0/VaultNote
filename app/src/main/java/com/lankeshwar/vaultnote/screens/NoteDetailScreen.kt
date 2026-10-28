@@ -1,7 +1,10 @@
 package com.lankeshwar.vaultnote.screens
 
+import android.content.Intent
 import android.graphics.BitmapFactory
+import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -37,10 +41,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lankeshwar.vaultnote.Utils.RichTextUtils
 import com.lankeshwar.vaultnote.viewmodels.NoteAttachmentViewModel
 import com.lankeshwar.vaultnote.viewmodels.TagViewModel
+import java.io.File
 
 @Composable
 fun NoteDetailScreen(
@@ -54,6 +60,7 @@ fun NoteDetailScreen(
     onEdit: () -> Unit
 ){
     val tagViewModel: TagViewModel = hiltViewModel()
+    val context = LocalContext.current
     val attachmentViewModel: NoteAttachmentViewModel = hiltViewModel()
     val assignedTags by tagViewModel.getTagsForNote(noteId).collectAsState(initial = emptyList())
     val allTags by tagViewModel.tags.collectAsState()
@@ -61,7 +68,6 @@ fun NoteDetailScreen(
 
     val attachments by attachmentViewModel
         .getAttachmentsForNote(noteId).collectAsState(initial = emptyList())
-
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -118,7 +124,9 @@ fun NoteDetailScreen(
             Text(text="Attachments", style = MaterialTheme.typography.titleMedium)
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(items=attachments, key = {it.id}){ attachment ->
+                items(items=attachments.filter {
+                    it.fileType.startsWith("image/")
+                }, key = {it.id}){ attachment ->
                     val bitmap = remember(attachment.filePath){
                         runCatching {
                             BitmapFactory.decodeFile(attachment.filePath)
@@ -140,6 +148,61 @@ fun NoteDetailScreen(
                     }
                 }
             }
+
+            attachments.filter { !it.fileType.startsWith("image/") }
+                .forEach { attachment ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable{
+
+                                try {
+                                    val file = File(attachment.filePath)
+                                    if(!file.exists()){
+                                        Toast.makeText(context,"File not found",Toast.LENGTH_SHORT).show()
+                                        return@clickable
+                                    }
+
+                                    val fileUri = FileProvider.getUriForFile(
+                                        context,"${context.packageName}.fileprovider",file
+                                    )
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(fileUri,attachment.fileType)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+
+                                    if(intent.resolveActivity(context.packageManager) != null){
+                                        context.startActivity(intent)
+                                    } else {
+                                        Toast.makeText(context, "No app available to open this file",Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (e: Exception){
+                                    Toast.makeText(context, "No app available to open this file",Toast.LENGTH_SHORT).show()
+                                }
+                            }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+
+                    ){
+                        Icon(
+                            imageVector = Icons.Default.AttachFile,
+                            contentDescription = "File Attachment"
+                        )
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = attachment.fileName,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+
+                            Text(
+                                text = attachment.fileType,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
         }
         HorizontalDivider()
 
