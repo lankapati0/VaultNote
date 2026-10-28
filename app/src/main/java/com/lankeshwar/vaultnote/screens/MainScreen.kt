@@ -131,13 +131,18 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
             composable(route=Routes.CREATE_NOTE){
                 CreateNoteScreen(
-                    onSave = {title,content,formattedContent ->
+                    onSave = {title,content,formattedContent,imageUris ->
                         notesViewModel.addNote(title,content,formattedContent=formattedContent,
+                            onNoteSaved = { noteId ->
+                                notesViewModel.saveImageAttachments(
+                                    noteId = noteId,
+                                    imageUris = imageUris
+                                )
+                            },
                             onComplete = {
                                 notesViewModel.deleteDraft("new_note")
                                 navController.popBackStack()
                             })
-
                     },
                     onCancel = {
                         navController.popBackStack()

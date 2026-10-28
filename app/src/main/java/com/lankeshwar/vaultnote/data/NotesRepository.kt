@@ -1,5 +1,7 @@
 package com.lankeshwar.vaultnote.data
 
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import com.lankeshwar.vaultnote.data.db.NoteDao
 import com.lankeshwar.vaultnote.data.db.NoteEntity
 import kotlinx.coroutines.flow.Flow
@@ -16,8 +18,8 @@ class NotesRepository @Inject constructor(
         return noteDao.getAllNotes()
     }
 
-    suspend fun insertNote(note: NoteEntity){
-        noteDao.insertNote(note)
+    suspend fun insertNote(note: NoteEntity): Long{
+        return noteDao.insertNote(note)
     }
 
     suspend fun deleteNote(noteId: Int){

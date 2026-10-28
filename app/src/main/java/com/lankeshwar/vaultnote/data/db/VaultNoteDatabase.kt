@@ -9,14 +9,15 @@ import androidx.sqlite.driver.SupportSQLiteConnection
 import androidx.sqlite.execSQL
 
 @Database(
-    entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class],
-    version = 11,
+    entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class,NoteAttachmentEntity::class],
+    version = 12,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
     abstract fun noteDao(): NoteDao
     abstract fun tagDao(): TagDao
     abstract fun noteDraftDao(): NoteDraftDao
+    abstract fun noteAttachmentDao(): NoteAttachmentDao
     companion object {
 
         val MIGRATION_1_3 = object : Migration(1, 3) {
@@ -177,7 +178,22 @@ abstract class VaultNoteDatabase: RoomDatabase() {
                 )
             }
         }
-
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+            CREATE TABLE IF NOT EXISTS `note_attachments` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `noteId` INTEGER NOT NULL,
+                `fileName` TEXT NOT NULL,
+                `fileType` TEXT NOT NULL,
+                `filePath` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL
+            )
+            """.trimIndent()
+                )
+            }
+        }
 
 
     }

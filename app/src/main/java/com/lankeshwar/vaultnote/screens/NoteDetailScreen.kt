@@ -1,12 +1,17 @@
 package com.lankeshwar.vaultnote.screens
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
@@ -28,9 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lankeshwar.vaultnote.Utils.RichTextUtils
+import com.lankeshwar.vaultnote.viewmodels.NoteAttachmentViewModel
 import com.lankeshwar.vaultnote.viewmodels.TagViewModel
 
 @Composable
@@ -45,9 +54,14 @@ fun NoteDetailScreen(
     onEdit: () -> Unit
 ){
     val tagViewModel: TagViewModel = hiltViewModel()
+    val attachmentViewModel: NoteAttachmentViewModel = hiltViewModel()
     val assignedTags by tagViewModel.getTagsForNote(noteId).collectAsState(initial = emptyList())
     val allTags by tagViewModel.tags.collectAsState()
     var showTagDialog by remember { mutableStateOf(false) }
+
+    val attachments by attachmentViewModel
+        .getAttachmentsForNote(noteId).collectAsState(initial = emptyList())
+
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -100,6 +114,33 @@ fun NoteDetailScreen(
         Text(text= displayContent, style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
 
+        if(attachments.isNotEmpty()){
+            Text(text="Attachments", style = MaterialTheme.typography.titleMedium)
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(items=attachments, key = {it.id}){ attachment ->
+                    val bitmap = remember(attachment.filePath){
+                        runCatching {
+                            BitmapFactory.decodeFile(attachment.filePath)
+                        }.getOrNull()
+                    }
+
+                    if(bitmap != null){
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = attachment.fileName,
+                            modifier = Modifier.height(120.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        Text(
+                            text = "Unable to display ${attachment.fileName}",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        }
         HorizontalDivider()
 
         Row(

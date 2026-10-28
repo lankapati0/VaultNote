@@ -3,6 +3,7 @@ package com.lankeshwar.vaultnote.di
 import android.content.Context
 import androidx.room.Room
 import com.lankeshwar.vaultnote.data.NotesRepository
+import com.lankeshwar.vaultnote.data.db.NoteAttachmentDao
 import com.lankeshwar.vaultnote.data.db.NoteDao
 import com.lankeshwar.vaultnote.data.db.NoteDraftDao
 import com.lankeshwar.vaultnote.data.db.TagDao
@@ -30,7 +31,8 @@ object DatabaseModule {
             .addMigrations(VaultNoteDatabase.MIGRATION_1_3, VaultNoteDatabase.MIGRATION_2_3,VaultNoteDatabase.MIGRATION_3_4,VaultNoteDatabase.MIGRATION_4_5,
                 VaultNoteDatabase.MIGRATION_5_6,VaultNoteDatabase.MIGRATION_6_7,
                 VaultNoteDatabase.MIGRATION_7_8, VaultNoteDatabase.MIGRATION_8_9,VaultNoteDatabase.MIGRATION_9_10,
-                VaultNoteDatabase.MIGRATION_10_11)
+                VaultNoteDatabase.MIGRATION_10_11,
+                VaultNoteDatabase.MIGRATION_11_12)
             .build()
     }
 
@@ -57,4 +59,9 @@ object DatabaseModule {
         return database.noteDraftDao()
     }
 
+    @Provides
+    @Singleton
+    fun provideNoteAttachmentDao(database: VaultNoteDatabase): NoteAttachmentDao {
+        return database.noteAttachmentDao()
+    }
 }

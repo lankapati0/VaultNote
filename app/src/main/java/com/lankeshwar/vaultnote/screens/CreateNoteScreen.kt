@@ -1,5 +1,10 @@
 package com.lankeshwar.vaultnote.screens
 
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -8,7 +13,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -26,38 +33,51 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.substring
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.fastCoerceAtLeast
 import com.lankeshwar.vaultnote.Utils.NoteEditorUtils
-import com.lankeshwar.vaultnote.Utils.NoteEditorUtils.insertBullet
 import com.lankeshwar.vaultnote.Utils.RichTextUtils
 import com.lankeshwar.vaultnote.data.db.NoteDraftEntity
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.lazy.items
+
 
 @Composable
 fun CreateNoteScreen(
-    onSave: (String, String, String)-> Unit,
+    onSave: (String, String, String, List<Uri>)-> Unit,
     onCancel: () -> Unit,
     onAutoSave: (String, String, String, Boolean) -> Unit,
     onLoadDraft: suspend () -> NoteDraftEntity?,
     onClearDraft: () -> Unit
 ) {
+    val context = LocalContext.current
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf(TextFieldValue("")) }
     var markdownMode by remember { mutableStateOf(false) }
 
     var isDraftLoaded by remember { mutableStateOf(false) }
+
+    var selectedImageUris by remember {
+        mutableStateOf<List<Uri>>(emptyList())
+    }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        selectedImageUris = selectedImageUris + uris
+    }
 
     LaunchedEffect(Unit) {
         val draft = onLoadDraft()
@@ -270,6 +290,36 @@ fun CreateNoteScreen(
                 Text(if (markdownMode) "Markdown: ON" else "Markdown")
             }
 
+            OutlinedButton(
+                onClick = {
+                    imagePickerLauncher.launch("image/*")
+                }
+            ) {     Text("🖼 Attach Images")
+            }
+
+        }
+
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(selectedImageUris){uri ->
+                val bitmap = remember(uri) {
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)?.use {
+                            BitmapFactory.decodeStream(it)
+                        }
+                    }.getOrNull()
+                }
+
+                if(bitmap != null){
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "Selected attachment",
+                        modifier = Modifier.height(100.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+
+
+            }
         }
 
         BasicTextField(
@@ -303,7 +353,7 @@ fun CreateNoteScreen(
                 }
 
 
-                onSave(title,content.text, savedHtml)},
+                onSave(title,content.text, savedHtml,selectedImageUris)},
             enabled = title.isNotBlank() || content.text.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) {
