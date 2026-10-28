@@ -43,23 +43,29 @@ import androidx.compose.ui.util.fastCoerceAtLeast
 import com.lankeshwar.vaultnote.Utils.NoteEditorUtils
 import com.lankeshwar.vaultnote.Utils.NoteEditorUtils.insertBullet
 import com.lankeshwar.vaultnote.Utils.RichTextUtils
+import com.lankeshwar.vaultnote.data.db.NoteDraftEntity
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
 
 @Composable
 fun EditNoteScreen(
+    noteId:Int,
     initialTitle: String,
     initialContent: String,
     initialFormattedContent: String,
     onSave: (String, String, String) -> Unit,
     onAutoSave: (String, String, String, () -> Unit) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onAutoSaveDraft: (String, String, String, Boolean) -> Unit,
+    onClearDraft: (String) -> Unit,
+    onLoadDraft: suspend (String) -> NoteDraftEntity?
 ) {
     var title by remember(initialTitle) {
         mutableStateOf(initialTitle)
     }
     var markdownMode by remember { mutableStateOf(false) }
+    var isDraftLoaded by remember(noteId) {mutableStateOf(false)}
     var content by remember(initialFormattedContent,initialContent) {
         mutableStateOf(
             if(initialFormattedContent.isNotBlank()){
@@ -82,7 +88,52 @@ fun EditNoteScreen(
     var lastSavedHtml by remember(initialFormattedContent) {
         mutableStateOf(initialFormattedContent)
     }
+
+    LaunchedEffect(noteId) {
+        val draftId = "edit_note_$noteId"
+        val draft = onLoadDraft(draftId)
+
+        if(draft != null){
+            title = draft.title
+            markdownMode = draft.isMarkdown
+
+            content = if(draft.isMarkdown){
+                TextFieldValue(draft.content)
+            } else if(draft.formattedContent.isNotBlank()) {
+                RichTextUtils.fromHtml(draft.formattedContent)
+            } else {
+                TextFieldValue(draft.content)
+            }
+
+            lastSavedTitle = draft.title
+            lastSavedContent = draft.content
+            lastSavedHtml = draft.formattedContent
+        }
+        isDraftLoaded = true
+    }
+
+    LaunchedEffect(title,content, markdownMode, isDraftLoaded) {
+        if(!isDraftLoaded) return@LaunchedEffect
+
+        if(title.isBlank() && content.text.isBlank()){
+            onClearDraft("edit_note_$noteId")
+            return@LaunchedEffect
+        }
+        delay(500.milliseconds)
+
+        val savedHtml = if(markdownMode){
+            RichTextUtils.markdownToHtml(content.text)
+        } else {
+            RichTextUtils.toHtml(content.annotatedString)
+        }
+
+        onAutoSaveDraft(title, content.text, savedHtml, markdownMode)
+
+    }
+
+
     fun applyStyle(style: SpanStyle) {
+
         val start = minOf(content.selection.start, content.selection.end)
         val end = maxOf(content.selection.start, content.selection.end)
 
@@ -149,7 +200,8 @@ fun EditNoteScreen(
         )
     }
 
-    LaunchedEffect(title, content, markdownMode) {
+    LaunchedEffect(title, content, markdownMode,isDraftLoaded) {
+        if(!isDraftLoaded) return@LaunchedEffect
         if (title.isBlank() && content.text.isBlank()) {
             autoSaveStatus = ""
             return@LaunchedEffect

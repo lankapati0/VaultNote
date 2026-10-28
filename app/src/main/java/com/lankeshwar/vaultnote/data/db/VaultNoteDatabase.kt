@@ -9,8 +9,8 @@ import androidx.sqlite.driver.SupportSQLiteConnection
 import androidx.sqlite.execSQL
 
 @Database(
-    entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class],
-    version = 10,
+    entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class],
+    version = 11,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
@@ -154,6 +154,24 @@ abstract class VaultNoteDatabase: RoomDatabase() {
                 formattedContent TEXT NOT NULL,
                 isMarkdown INTEGER NOT NULL,
                 updatedAt INTEGER NOT NULL
+            )
+            """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+            CREATE TABLE IF NOT EXISTS `note_drafts` (
+                `draftId` TEXT NOT NULL,
+                `title` TEXT NOT NULL,
+                `content` TEXT NOT NULL,
+                `formattedContent` TEXT NOT NULL,
+                `isMarkdown` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`draftId`)
             )
             """.trimIndent()
                 )

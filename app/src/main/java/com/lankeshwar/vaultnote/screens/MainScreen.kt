@@ -125,14 +125,19 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         selectedNote = note
                         navController.navigate(Routes.NOTE_DETAIL)
                     }
+
                 )
             }
 
             composable(route=Routes.CREATE_NOTE){
                 CreateNoteScreen(
                     onSave = {title,content,formattedContent ->
-                        notesViewModel.addNote(title,content,formattedContent=formattedContent)
-                        navController.popBackStack()
+                        notesViewModel.addNote(title,content,formattedContent=formattedContent,
+                            onComplete = {
+                                notesViewModel.deleteDraft("new_note")
+                                navController.popBackStack()
+                            })
+
                     },
                     onCancel = {
                         navController.popBackStack()
@@ -169,6 +174,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                 val note = selectedNote
                 if (note != null){
                     EditNoteScreen(
+                        noteId = note.id,
                         initialTitle = note.title,
                         initialContent = note.preview,
                         initialFormattedContent = note.formattedContent,
@@ -177,7 +183,11 @@ fun MainScreen(selectTheme: AppTheme? = null,
                                 note = note,
                                 title = title,
                                 content = content,
-                                formattedContent = formattedContent
+                                formattedContent = formattedContent,
+                                onComplete = {
+                                    notesViewModel.deleteDraft("edit_note_${note.id}")
+                                    navController.popBackStack()
+                                }
                             )
                             navController.popBackStack()
                         },
@@ -187,11 +197,29 @@ fun MainScreen(selectTheme: AppTheme? = null,
                                 title = title,
                                 content = content,
                                 formattedContent = formattedContent,
-                                onComplete = onComplete
+                                onComplete = {
+                                    notesViewModel.deleteDraft("edit_note_${note.id}")
+                                    onComplete()
+                                }
                             )
                         },
                         onCancel = {
                             navController.popBackStack()
+                        },
+                        onAutoSaveDraft = {title,content,formattedContent,isMarkdown ->
+                            notesViewModel.saveDraft(
+                                draftId = "edit_note_${note.id}",
+                                title = title,
+                                content = content,
+                                formattedContent = formattedContent,
+                                isMarkdown = isMarkdown
+                            )
+                        },
+                        onLoadDraft = { draftId ->
+                            notesViewModel.getDraft(draftId)
+                        },
+                        onClearDraft = { draftId ->
+                            notesViewModel.deleteDraft(draftId)
                         }
                     )
                 }

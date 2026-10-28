@@ -250,7 +250,10 @@ fun PrivateNotesScreen(
                 notesViewModel.addNote(
                     title = title,
                     content = content,
-                    isPrivate = true
+                    isPrivate = true,
+                    onComplete = {
+
+                    }
                 )
                 title = ""
                 content = ""
