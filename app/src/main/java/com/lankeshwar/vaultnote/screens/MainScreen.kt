@@ -131,7 +131,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
             composable(route=Routes.CREATE_NOTE){
                 CreateNoteScreen(
-                    onSave = {title,content,formattedContent,imageUris, fileUris ->
+                    onSave = {title,content,formattedContent,imageUris, fileUris,audioFile ->
                         notesViewModel.addNote(title,content,formattedContent=formattedContent,
                             onNoteSaved = { noteId ->
                                 notesViewModel.saveImageAttachments(
@@ -142,6 +142,12 @@ fun MainScreen(selectTheme: AppTheme? = null,
                                     noteId = noteId,
                                     fileUris = fileUris
                                 )
+                                audioFile?.let { file ->
+                                    notesViewModel.saveVoiceRecording(
+                                        noteId = noteId,
+                                        recordedFile = file
+                                    )
+                                }
                             },
                             onComplete = {
                                 notesViewModel.deleteDraft("new_note")
@@ -165,8 +171,16 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     },
                     onClearDraft = {
                         notesViewModel.deleteDraft("new_note")
+                    },
+                    onStartVoiceRecording = {
+                        notesViewModel.startVoiceRecording()
+                    },
+                    onStopVoiceRecording = {
+                        notesViewModel.stopVoiceRecordingForNewNote()
+                    },
+                    onCancelVoiceRecording = {
+                        notesViewModel.cancelVoiceRecording()
                     }
-
                 )
             }
 

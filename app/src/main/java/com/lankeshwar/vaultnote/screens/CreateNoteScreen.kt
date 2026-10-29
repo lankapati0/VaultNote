@@ -57,21 +57,28 @@ import com.lankeshwar.vaultnote.data.db.NoteDraftEntity
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.ui.text.substring
 import androidx.core.content.ContextCompat
 import com.lankeshwar.vaultnote.Utils.FileUtils
+import java.io.File
 
 @Composable
 fun CreateNoteScreen(
-    onSave: (String, String, String, List<Uri>, List<Uri>)-> Unit,
+    onSave: (String, String, String, List<Uri>, List<Uri>,File?)-> Unit,
     onCancel: () -> Unit,
     onAutoSave: (String, String, String, Boolean) -> Unit,
     onLoadDraft: suspend () -> NoteDraftEntity?,
-    onClearDraft: () -> Unit
+    onClearDraft: () -> Unit,
+    onStartVoiceRecording: () -> Unit,
+    onStopVoiceRecording: () -> File?,
+    onCancelVoiceRecording: () -> Unit
 ) {
     val context = LocalContext.current
     var title by remember { mutableStateOf("") }
@@ -82,6 +89,22 @@ fun CreateNoteScreen(
 
     var selectedImageUris by remember {
         mutableStateOf<List<Uri>>(emptyList())
+    }
+    // Autosave status
+    var autoSaveStatus by remember {
+        mutableStateOf("")
+    }
+
+    var lastSavedTitle by remember {
+        mutableStateOf("")
+    }
+
+    var lastSavedContent by remember {
+        mutableStateOf("")
+    }
+
+    var lastSavedHtml by remember {
+        mutableStateOf("")
     }
 
     var selectedFileUris by remember {
@@ -95,7 +118,7 @@ fun CreateNoteScreen(
     }
 
     val documentPickerLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetMultipleContents()) { uris ->
-        selectedImageUris = selectedImageUris + uris
+        selectedFileUris = selectedFileUris + uris
     }
 
     var isListening by remember { mutableStateOf(false) }
@@ -154,6 +177,10 @@ fun CreateNoteScreen(
         }
     }
 
+    var isRecording by remember {mutableStateOf(false)}
+    var recordedAudioFile by remember { mutableStateOf<File?>(null) }
+    var recordingError by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(Unit) {
         val draft = onLoadDraft()
 
@@ -175,6 +202,7 @@ fun CreateNoteScreen(
         if(!isDraftLoaded) return@LaunchedEffect
 
         if(title.isBlank() && content.text.isBlank()){
+            autoSaveStatus = ""
             return@LaunchedEffect
         }
         delay(1000.milliseconds)
@@ -183,8 +211,42 @@ fun CreateNoteScreen(
         } else {
             RichTextUtils.toHtml(content.annotatedString)
         }
+        if (
+            title == lastSavedTitle &&
+            content.text == lastSavedContent &&
+            savedHtml == lastSavedHtml
+        ) {
+            return@LaunchedEffect
+        }
 
-        onAutoSave(title,content.text,savedHtml, markdownMode)
+        autoSaveStatus = "Unsaved changes"
+        delay(1000L.milliseconds)
+        onAutoSave(title, content.text, savedHtml, markdownMode)
+
+        lastSavedTitle = title
+        lastSavedContent = content.text
+        lastSavedHtml = savedHtml
+        autoSaveStatus = "Saving…"
+
+    }
+
+    fun openPdf(uri: Uri) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/pdf")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            context.startActivity(
+                Intent.createChooser(intent, "Open PDF with")
+            )
+        } catch (e: Exception) {
+            Toast.makeText(
+                context,
+                "Unable to open PDF. Please install a PDF viewer.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     fun applyStyle(style: SpanStyle) {
@@ -255,15 +317,20 @@ fun CreateNoteScreen(
     }
 
 
-
-
-
     Column(
         modifier = Modifier.fillMaxSize()
-            .padding(20.dp),
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Create Note")
+        Text("Create Note",            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Text(
+            text = autoSaveStatus,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         OutlinedTextField(
             value = title,
@@ -421,6 +488,85 @@ fun CreateNoteScreen(
                 Text("📎 Attach Files")
             }
 
+            OutlinedButton(
+                onClick = {
+                    recordingError = null
+
+                    val permissionGranted =
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                    if (permissionGranted) {
+                        try {
+                            onStartVoiceRecording()
+                            isRecording = true
+                        } catch (e: Exception) {
+                            recordingError =
+                                e.message ?: "Unable to start recording"
+                        }
+                    } else {
+                        microphonePermissionLauncher.launch(
+                            Manifest.permission.RECORD_AUDIO
+                        )
+                    }
+                },
+                enabled = !isRecording
+            ) {
+                Text("Start Recording")
+            }
+
+            OutlinedButton(
+                onClick = {
+                    try {
+                        recordedAudioFile = onStopVoiceRecording()
+                        isRecording = false
+                        recordingError = if (recordedAudioFile == null) {
+                            "Unable to save recording."
+                        } else {
+                            null
+                        }
+                    } catch (e: Exception) {
+                        recordingError =
+                            e.message ?: "Unable to stop recording"
+                        isRecording = false
+                    }
+                },
+                enabled = isRecording
+            ) {
+                Text("Stop Recording")
+            }
+
+            OutlinedButton(onClick = {
+                try{
+                    onCancelVoiceRecording()
+                } finally {
+                    isRecording = false
+                    recordedAudioFile = null
+                    recordingError = null
+                }
+            },
+                enabled = isRecording || recordedAudioFile != null
+            ) {
+                Text("Cancel Recording")
+            }
+
+        }
+
+        if(isRecording){
+            Text("Recording in progress…")
+        }
+
+        recordedAudioFile?.let {
+            Text("Recording ready to save with your note.")
+        }
+
+        recordingError?.let { error ->
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error
+            )
         }
 
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -444,7 +590,7 @@ fun CreateNoteScreen(
             }
         }
 
-        if(selectedImageUris.isNotEmpty()){
+/*        if(selectedImageUris.isNotEmpty()){
             Text(text="Attached Files", style = MaterialTheme.typography.titleMedium)
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -455,8 +601,39 @@ fun CreateNoteScreen(
                     )
                 }
             }
-        }
+        }*/
 
+        if (selectedFileUris.isNotEmpty()) {
+            Text(
+                text = "Attached Files",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                selectedFileUris.forEach { uri ->
+                    val fileName = FileUtils.getDisplayFileName(context, uri)
+                    val mimeType = context.contentResolver.getType(uri)
+
+                    Text(
+                        text = "📎 $fileName",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (
+                                    mimeType == "application/pdf" ||
+                                    fileName.endsWith(".pdf", ignoreCase = true)
+                                ) {
+                                    openPdf(uri)
+                                }
+                            }
+                            .padding(vertical = 8.dp)
+                    )
+                }
+            }
+        }
 
         BasicTextField(
             value = content,
@@ -489,7 +666,7 @@ fun CreateNoteScreen(
                 }
 
 
-            onSave(title,content.text, savedHtml,selectedImageUris,selectedFileUris)},
+            onSave(title,content.text, savedHtml,selectedImageUris,selectedFileUris,recordedAudioFile)},
             enabled = title.isNotBlank() || content.text.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) {

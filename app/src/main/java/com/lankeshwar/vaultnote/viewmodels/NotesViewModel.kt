@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 import kotlin.collections.emptyList
 
 @HiltViewModel
@@ -325,8 +326,24 @@ class NotesViewModel @Inject constructor(
         }
     }
 
+    fun stopVoiceRecordingForNewNote(): File? {
+        return voiceRecorder.stopRecording()
+    }
+
     fun cancelVoiceRecording(){
         voiceRecorder.cancelRecording()
+    }
+
+    fun saveVoiceRecording(noteId:Long, recordedFile:File){
+        viewModelScope.launch {
+            val attachment = NoteAttachmentEntity(
+                noteId = noteId.toInt(),
+                fileName = recordedFile.name,
+                fileType = "audio/mp4",
+                filePath = recordedFile.absolutePath
+            )
+            attachmentRepository.addAttachment(attachment)
+        }
     }
 
 

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.media.MediaPlayer
 import android.net.Uri
+import android.speech.RecognizerIntent
 import android.widget.Button
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -68,6 +69,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -83,7 +85,6 @@ import androidx.core.content.ContextCompat
 import com.lankeshwar.vaultnote.Utils.AudioPlayerUtils
 import com.lankeshwar.vaultnote.Utils.FileUtils
 import kotlin.contracts.contract
-
 
 @SuppressLint("QueryPermissionsNeeded")
 @Composable
@@ -169,22 +170,61 @@ fun EditNoteScreen(
     var isRecording by remember { mutableStateOf(false) }
     var recordingError by remember { mutableStateOf<String?>(null) }
 
-    val microphonePermissionLauncher =
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            if (isGranted) {
-                try {
-                    onStartVoiceRecording()
-                    isRecording = true
-                    recordingError = null
-                } catch (e: Exception) {
-                    recordingError = e.message ?: "Unable to start recording"
+    var isListening by remember { mutableStateOf(false) }
+    val speechRecognizerLauncher =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) { result ->
+            isListening = false
+
+            if(result.resultCode == android.app.Activity.RESULT_OK){
+                val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+
+                if(!spokenText.isNullOrBlank()){
+                    val currentText = content.text
+                    val start = minOf(content.selection.start,content.selection.end)
+                    val end = maxOf(content.selection.start,content.selection.end)
+
+                    val updatedText = buildString {
+                        append(currentText.subSequence(0,start))
+                        append(spokenText)
+                        append(currentText.substring(end))
+                    }
+                    val cursorPosition = start + spokenText.length
+                    content = TextFieldValue(text=updatedText,
+                        selection = TextRange(cursorPosition))
                 }
-            } else {
-                recordingError = "Microphone permission is required"
+
             }
         }
+
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+
+        if (granted) {
+            val intent = Intent(
+                RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+            ).apply {
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                )
+                putExtra(
+                    RecognizerIntent.EXTRA_PROMPT,
+                    "Speak your note"
+                )
+            }
+
+            isListening = true
+            speechRecognizerLauncher.launch(intent)
+        } else {
+            Toast.makeText(
+                context,
+                "Microphone permission is required",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
 
     // Audio playback
     val audioPlayer = remember { AudioPlayerUtils() }
@@ -388,6 +428,44 @@ fun EditNoteScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Speech to Text
+            OutlinedButton(
+                onClick = {
+                    val permissionGranted = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.RECORD_AUDIO,
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    if(permissionGranted){
+                        val intent = Intent(
+                            RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+                        ).apply {
+                            putExtra(
+                                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                            )
+                            putExtra(
+                                RecognizerIntent.EXTRA_PROMPT,
+                                "Speak your note"
+                            )
+                        }
+
+                        isListening = true
+                        speechRecognizerLauncher.launch(intent)
+                    } else {
+                        microphonePermissionLauncher.launch(
+                            Manifest.permission.RECORD_AUDIO
+                        )
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "Speech to text"
+                )
+                Text(if (isListening) "Listening…" else "Speak")
+            }
+
+
             OutlinedButton(
                 onClick = {
                     applyStyle(SpanStyle(fontWeight = FontWeight.Bold))
