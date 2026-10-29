@@ -1,5 +1,6 @@
 package com.lankeshwar.vaultnote.screens
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.widget.Toast
@@ -15,11 +16,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -29,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,11 +50,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.lankeshwar.vaultnote.Utils.AudioPlayerUtils
 import com.lankeshwar.vaultnote.Utils.RichTextUtils
 import com.lankeshwar.vaultnote.viewmodels.NoteAttachmentViewModel
 import com.lankeshwar.vaultnote.viewmodels.TagViewModel
 import java.io.File
 
+@SuppressLint("QueryPermissionsNeeded")
 @Composable
 fun NoteDetailScreen(
     noteId:Int,
@@ -69,9 +78,53 @@ fun NoteDetailScreen(
     val attachments by attachmentViewModel
         .getAttachmentsForNote(noteId).collectAsState(initial = emptyList())
 
+    val audioPlayer = remember { AudioPlayerUtils() }
+    var playingFilePath by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var isAudioPlaying by remember {
+        mutableStateOf(false)
+    }
+
+    fun stopAudioPlayback() {
+        audioPlayer.stop { playing ->
+            isAudioPlaying = playing
+        }
+        playingFilePath = null
+    }
+
+    fun playAudio(filePath: String) {
+        playingFilePath = filePath
+
+        audioPlayer.play(
+            filePath = filePath,
+            onPlayingChanged = { playing ->
+                isAudioPlaying = playing
+                playingFilePath = if (playing) filePath else null
+            },
+            onError = {
+                playingFilePath = null
+                isAudioPlaying = false
+                Toast.makeText(
+                    context,
+                    "Unable to play this recording",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        )
+    }
+
+    DisposableEffect (audioPlayer) {
+        onDispose {
+            audioPlayer.release()
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize()
-            .padding(20.dp),
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Row(
@@ -151,57 +204,149 @@ fun NoteDetailScreen(
 
             attachments.filter { !it.fileType.startsWith("image/") }
                 .forEach { attachment ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .clickable{
+                    if(attachment.fileType.startsWith("audio/")){
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AttachFile,
+                                contentDescription = "Audio attachment"
+                            )
 
-                                try {
-                                    val file = File(attachment.filePath)
-                                    if(!file.exists()){
-                                        Toast.makeText(context,"File not found",Toast.LENGTH_SHORT).show()
-                                        return@clickable
-                                    }
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = attachment.fileName)
 
-                                    val fileUri = FileProvider.getUriForFile(
-                                        context,"${context.packageName}.fileprovider",file
-                                    )
-                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        setDataAndType(fileUri,attachment.fileType)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-
-                                    if(intent.resolveActivity(context.packageManager) != null){
-                                        context.startActivity(intent)
+                                Text(
+                                    text = if (
+                                        playingFilePath == attachment.filePath &&
+                                        isAudioPlaying
+                                    ) {
+                                        "Playing…"
                                     } else {
+                                        "Audio recording"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    if (playingFilePath == attachment.filePath) {
+                                        if (isAudioPlaying) {
+                                            audioPlayer.pause { playing ->
+                                                isAudioPlaying = playing
+                                            }
+                                        } else {
+                                            audioPlayer.resume { playing ->
+                                                isAudioPlaying = playing
+                                            }
+                                        }
+                                    } else {
+                                        playAudio(attachment.filePath)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = if (
+                                        playingFilePath == attachment.filePath &&
+                                        isAudioPlaying
+                                    ) {
+                                        Icons.Default.Pause
+                                    } else {
+                                        Icons.Default.PlayArrow
+                                    },
+                                    contentDescription = if (
+                                        playingFilePath == attachment.filePath &&
+                                        isAudioPlaying
+                                    ) {
+                                        "Pause playback"
+                                    } else {
+                                        "Play recording"
+                                    }
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { stopAudioPlayback() }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Stop,
+                                    contentDescription = "Stop playback"
+                                )
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .clickable{
+
+                                    try {
+                                        val file = File(attachment.filePath)
+                                        if (!file.exists()) {
+                                            Toast.makeText(
+                                                context,
+                                                "File not found",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            return@clickable
+                                        }
+
+                                        val fileUri = FileProvider.getUriForFile(
+                                            context, "${context.packageName}.fileprovider", file
+                                        )
+
+                                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(fileUri, "application/pdf")
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+
+                                        try {
+                                            context.startActivity(
+                                                Intent.createChooser(intent, "Open PDF with")
+                                            )
+                                        } catch (e: android.content.ActivityNotFoundException) {
+                                            Toast.makeText(
+                                                context,
+                                                "No PDF viewer can open this file",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    }catch (e: Exception){
                                         Toast.makeText(context, "No app available to open this file",Toast.LENGTH_SHORT).show()
                                     }
-                                } catch (e: Exception){
-                                    Toast.makeText(context, "No app available to open this file",Toast.LENGTH_SHORT).show()
-                                }
-                            }.padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
 
-                    ){
-                        Icon(
-                            imageVector = Icons.Default.AttachFile,
-                            contentDescription = "File Attachment"
-                        )
+                                }.padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = attachment.fileName,
-                                style = MaterialTheme.typography.bodyMedium
+                        ){
+                            Icon(
+                                imageVector = Icons.Default.AttachFile,
+                                contentDescription = "File Attachment"
                             )
 
-                            Text(
-                                text = attachment.fileType,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = attachment.fileName,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+
+                                Text(
+                                    text = attachment.fileType,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
+
                 }
+
 
         }
         HorizontalDivider()

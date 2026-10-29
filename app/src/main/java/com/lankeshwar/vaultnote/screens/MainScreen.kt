@@ -237,6 +237,15 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         },
                         onClearDraft = { draftId ->
                             notesViewModel.deleteDraft(draftId)
+                        },
+                        onStartVoiceRecording = {
+                            notesViewModel.startVoiceRecording()
+                        },
+                        onStopVoiceRecording = {
+                            notesViewModel.stopVoiceRecording(note.id.toLong())
+                        },
+                        onCancelVoiceRecording = {
+                            notesViewModel.cancelVoiceRecording()
                         }
                     )
                 }

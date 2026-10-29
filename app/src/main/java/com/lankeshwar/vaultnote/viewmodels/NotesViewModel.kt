@@ -20,6 +20,7 @@ import com.lankeshwar.vaultnote.data.db.NoteAttachmentEntity
 import com.lankeshwar.vaultnote.data.db.NoteDraftEntity
 import com.lankeshwar.vaultnote.data.db.NoteEntity
 import com.lankeshwar.vaultnote.data.storage.AttachmentFileManager
+import com.lankeshwar.vaultnote.data.storage.VoiceRecorder
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,6 +43,7 @@ class NotesViewModel @Inject constructor(
     private val searchQueryFlow = MutableStateFlow("")
 
     private val attachmentFileManager = AttachmentFileManager(context)
+    private val voiceRecorder = VoiceRecorder(context)
     var searchQuery by mutableStateOf("")
     private set
     private val notes = repository.getRegularNotes()
@@ -306,7 +308,26 @@ class NotesViewModel @Inject constructor(
         return fileName ?: uri.lastPathSegment ?: "image"
     }
 
+    fun startVoiceRecording():String {
+        return voiceRecorder.startRecording().absolutePath
+    }
 
+    fun stopVoiceRecording(noteId: Long){
+        viewModelScope.launch {
+            val recordedFile = voiceRecorder.stopRecording() ?: return@launch
+            val attachment = NoteAttachmentEntity(
+                noteId = noteId.toInt(),
+                fileName = recordedFile.name,
+                fileType = "audio/mp4",
+                filePath = recordedFile.absolutePath
+            )
+            attachmentRepository.addAttachment(attachment)
+        }
+    }
+
+    fun cancelVoiceRecording(){
+        voiceRecorder.cancelRecording()
+    }
 
 
 }
