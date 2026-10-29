@@ -1,8 +1,14 @@
 package com.lankeshwar.vaultnote.screens
 
+import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.speech.RecognizerIntent
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -52,6 +58,11 @@ import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.Icon
+import androidx.compose.ui.text.substring
+import androidx.core.content.ContextCompat
 import com.lankeshwar.vaultnote.Utils.FileUtils
 
 @Composable
@@ -86,6 +97,63 @@ fun CreateNoteScreen(
     val documentPickerLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetMultipleContents()) { uris ->
         selectedImageUris = selectedImageUris + uris
     }
+
+    var isListening by remember { mutableStateOf(false) }
+
+    val speechRecognizerLauncher =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) { result ->
+            isListening = false
+
+            if(result.resultCode == android.app.Activity.RESULT_OK){
+                val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+
+                if(!spokenText.isNullOrBlank()){
+                    val currentText = content.text
+                    val start = minOf(content.selection.start,content.selection.end)
+                    val end = maxOf(content.selection.start,content.selection.end)
+
+                    val updatedText = buildString {
+                        append(currentText.subSequence(0,start))
+                        append(spokenText)
+                        append(currentText.substring(end))
+                    }
+                    val cursorPosition = start + spokenText.length
+                    content = TextFieldValue(text=updatedText,
+                        selection = TextRange(cursorPosition))
+                }
+
+            }
+        }
+
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+
+        if (granted) {
+            val intent = Intent(
+                RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+            ).apply {
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                )
+                putExtra(
+                    RecognizerIntent.EXTRA_PROMPT,
+                    "Speak your note"
+                )
+            }
+
+            isListening = true
+            speechRecognizerLauncher.launch(intent)
+        } else {
+            Toast.makeText(
+                context,
+                "Microphone permission is required",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     LaunchedEffect(Unit) {
         val draft = onLoadDraft()
 
@@ -210,6 +278,45 @@ fun CreateNoteScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
+            // Speech to Text
+            OutlinedButton(
+                onClick = {
+                    val permissionGranted = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.RECORD_AUDIO,
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    if(permissionGranted){
+                        val intent = Intent(
+                            RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+                        ).apply {
+                            putExtra(
+                                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                            )
+                            putExtra(
+                                RecognizerIntent.EXTRA_PROMPT,
+                                "Speak your note"
+                            )
+                        }
+
+                        isListening = true
+                        speechRecognizerLauncher.launch(intent)
+                    } else {
+                        microphonePermissionLauncher.launch(
+                            Manifest.permission.RECORD_AUDIO
+                        )
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "Speech to text"
+                )
+                Text(if (isListening) "Listening…" else "Speak")
+            }
+
+            // Bold Button
             OutlinedButton(
                 onClick = { applyStyle(SpanStyle(fontWeight = FontWeight.Bold))},
                 enabled = !content.selection.collapsed
@@ -240,6 +347,7 @@ fun CreateNoteScreen(
                 )
             }
 
+            // Line-Through Button
             OutlinedButton(
                 onClick = { applyStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) },
                 enabled = !content.selection.collapsed
@@ -250,39 +358,40 @@ fun CreateNoteScreen(
                 )
             }
 
+            // H1 Heading
             OutlinedButton(
                 onClick = {applyHeading(28)},
                 enabled = !content.selection.collapsed
             ) {
                 Text("H1")
             }
-
+            // H2 Heading
             OutlinedButton(
                 onClick = {applyHeading(24)},
                 enabled = !content.selection.collapsed
             ) {
                 Text("H2")
             }
-
+            // H3 Heading
             OutlinedButton(
                 onClick = {applyHeading(20)},
                 enabled = !content.selection.collapsed
             ) {
                 Text("H3")
             }
-
+            // List Button
             OutlinedButton(onClick = {
                 content = NoteEditorUtils.insertBullet(content)
             }) {
                 Text("• List")
             }
-
+            // Checklist button
             OutlinedButton(onClick = {
                 content = NoteEditorUtils.insertChecklistItem(content)
             }) {
                 Text("☐ Checklist")
             }
-
+            // List button
             OutlinedButton(
                 onClick = {
                     content = NoteEditorUtils.insertNumberedList(content)
@@ -290,7 +399,7 @@ fun CreateNoteScreen(
             ) {
                 Text("1. List")
             }
-
+            // Markdown button
             OutlinedButton(
                 onClick = { markdownMode = !markdownMode }
             ) {
