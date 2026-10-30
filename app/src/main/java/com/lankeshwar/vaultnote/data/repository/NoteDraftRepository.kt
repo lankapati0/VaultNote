@@ -1,7 +1,7 @@
-package com.lankeshwar.vaultnote.data
+package com.lankeshwar.vaultnote.data.repository
 
-import com.lankeshwar.vaultnote.data.db.NoteDraftDao
-import com.lankeshwar.vaultnote.data.db.NoteDraftEntity
+import com.lankeshwar.vaultnote.data.db.dao.NoteDraftDao
+import com.lankeshwar.vaultnote.data.db.entity.NoteDraftEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 

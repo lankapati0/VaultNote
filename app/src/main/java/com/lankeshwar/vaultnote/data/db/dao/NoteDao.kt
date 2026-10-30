@@ -1,10 +1,11 @@
-package com.lankeshwar.vaultnote.data.db
+package com.lankeshwar.vaultnote.data.db.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import com.lankeshwar.vaultnote.data.db.entity.NoteEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -62,4 +63,15 @@ interface NoteDao {
     WHERE id = :noteId
 """)
     suspend fun updateReminder(noteId:Int, reminderTime:Long?, reminderRepeat: String, isEnabled: Boolean)
+
+    @Query("""
+    UPDATE notes
+    SET isReminderEnabled = 0
+    WHERE id = :noteId
+    AND reminderRepeat = 'NONE'
+""")
+    suspend fun disableOneTimeReminder(noteId:Int){
+
+    }
+
 }

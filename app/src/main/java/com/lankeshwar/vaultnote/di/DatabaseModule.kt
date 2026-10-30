@@ -2,12 +2,13 @@ package com.lankeshwar.vaultnote.di
 
 import android.content.Context
 import androidx.room.Room
-import com.lankeshwar.vaultnote.data.NotesRepository
-import com.lankeshwar.vaultnote.data.db.NoteAttachmentDao
-import com.lankeshwar.vaultnote.data.db.NoteDao
-import com.lankeshwar.vaultnote.data.db.NoteDraftDao
-import com.lankeshwar.vaultnote.data.db.TagDao
+import com.lankeshwar.vaultnote.data.repository.NotesRepository
+import com.lankeshwar.vaultnote.data.db.dao.NoteAttachmentDao
+import com.lankeshwar.vaultnote.data.db.dao.NoteDao
+import com.lankeshwar.vaultnote.data.db.dao.NoteDraftDao
+import com.lankeshwar.vaultnote.data.db.dao.TagDao
 import com.lankeshwar.vaultnote.data.db.VaultNoteDatabase
+import com.lankeshwar.vaultnote.data.db.dao.TaskDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -32,7 +33,8 @@ object DatabaseModule {
                 VaultNoteDatabase.MIGRATION_5_6,VaultNoteDatabase.MIGRATION_6_7,
                 VaultNoteDatabase.MIGRATION_7_8, VaultNoteDatabase.MIGRATION_8_9,VaultNoteDatabase.MIGRATION_9_10,
                 VaultNoteDatabase.MIGRATION_10_11,
-                VaultNoteDatabase.MIGRATION_11_12,VaultNoteDatabase.MIGRATION_12_13)
+                VaultNoteDatabase.MIGRATION_11_12,VaultNoteDatabase.MIGRATION_12_13,
+                VaultNoteDatabase.MIGRATION_13_14)
             .build()
     }
 
@@ -64,4 +66,10 @@ object DatabaseModule {
     fun provideNoteAttachmentDao(database: VaultNoteDatabase): NoteAttachmentDao {
         return database.noteAttachmentDao()
     }
+
+    @Provides
+    fun provideTaskDao(database: VaultNoteDatabase): TaskDao{
+        return database.taskDao()
+    }
+
 }

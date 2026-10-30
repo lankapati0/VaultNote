@@ -1,4 +1,4 @@
-package com.lankeshwar.vaultnote.data.db
+package com.lankeshwar.vaultnote.data.db.entity
 
 import androidx.room.Entity
 import androidx.room.Index

@@ -1,6 +1,7 @@
 package com.lankeshwar.vaultnote
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -12,6 +13,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -27,11 +29,23 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
+
+    private val notificationNoteId = mutableIntStateOf(-1)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        notificationNoteId.intValue = intent.getIntExtra("noteId",-1)
+    }
+
     @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        notificationNoteId.intValue = intent.getIntExtra("noteId",-1)
+
         setContent {
             val context = LocalContext.current
+
             var selectTheme by remember {
                 mutableStateOf(ThemePreferences.getTheme(context))
             }
@@ -61,6 +75,10 @@ class MainActivity : FragmentActivity() {
                     onThemeChange = {theme ->
                         ThemePreferences.saveTheme(context, theme)
                         selectTheme = theme
+                    },
+                    notificationNoteId = notificationNoteId.intValue.takeIf { it != -1 },
+                    onNotificationHandled = {
+                        notificationNoteId.intValue = -1
                     }
                 )
             }

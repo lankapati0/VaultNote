@@ -1,9 +1,11 @@
-package com.lankeshwar.vaultnote.data.db
+package com.lankeshwar.vaultnote.data.db.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.lankeshwar.vaultnote.data.db.NoteTagCrossRef
+import com.lankeshwar.vaultnote.data.db.entity.TagEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao

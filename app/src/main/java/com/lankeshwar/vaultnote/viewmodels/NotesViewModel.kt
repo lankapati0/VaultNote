@@ -1,27 +1,24 @@
 package com.lankeshwar.vaultnote.viewmodels
 
-import android.Manifest
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
-import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import com.lankeshwar.vaultnote.data.NotesRepository
+import com.lankeshwar.vaultnote.data.repository.NotesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.lifecycle.viewModelScope
 import com.lankeshwar.vaultnote.Utils.ReminderScheduler
 import com.lankeshwar.vaultnote.data.Note
-import com.lankeshwar.vaultnote.data.NoteAttachmentRepository
-import com.lankeshwar.vaultnote.data.NoteDraftRepository
-import com.lankeshwar.vaultnote.data.db.NoteAttachmentEntity
-import com.lankeshwar.vaultnote.data.db.NoteDraftEntity
-import com.lankeshwar.vaultnote.data.db.NoteEntity
+import com.lankeshwar.vaultnote.data.repository.NoteAttachmentRepository
+import com.lankeshwar.vaultnote.data.repository.NoteDraftRepository
+import com.lankeshwar.vaultnote.data.db.entity.NoteAttachmentEntity
+import com.lankeshwar.vaultnote.data.db.entity.NoteDraftEntity
+import com.lankeshwar.vaultnote.data.db.entity.NoteEntity
 import com.lankeshwar.vaultnote.data.storage.AttachmentFileManager
 import com.lankeshwar.vaultnote.data.storage.VoiceRecorder
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -395,6 +392,12 @@ class NotesViewModel @Inject constructor(
                 isEnabled = isEnabled
             )
             onComplete()
+        }
+    }
+
+    fun disableOneTimeReminder(noteId:Int){
+        viewModelScope.launch {
+            repository.disableOneTimeReminder(noteId)
         }
     }
 

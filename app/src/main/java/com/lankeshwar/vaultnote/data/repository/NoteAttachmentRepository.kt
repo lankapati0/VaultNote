@@ -1,7 +1,7 @@
-package com.lankeshwar.vaultnote.data
+package com.lankeshwar.vaultnote.data.repository
 
-import com.lankeshwar.vaultnote.data.db.NoteAttachmentDao
-import com.lankeshwar.vaultnote.data.db.NoteAttachmentEntity
+import com.lankeshwar.vaultnote.data.db.dao.NoteAttachmentDao
+import com.lankeshwar.vaultnote.data.db.entity.NoteAttachmentEntity
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton

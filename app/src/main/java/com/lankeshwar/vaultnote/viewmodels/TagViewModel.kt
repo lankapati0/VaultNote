@@ -2,8 +2,8 @@ package com.lankeshwar.vaultnote.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lankeshwar.vaultnote.data.TagRepository
-import com.lankeshwar.vaultnote.data.db.TagEntity
+import com.lankeshwar.vaultnote.data.repository.TagRepository
+import com.lankeshwar.vaultnote.data.db.entity.TagEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

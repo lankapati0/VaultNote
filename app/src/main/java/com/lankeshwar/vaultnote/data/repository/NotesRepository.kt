@@ -1,9 +1,7 @@
-package com.lankeshwar.vaultnote.data
+package com.lankeshwar.vaultnote.data.repository
 
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import com.lankeshwar.vaultnote.data.db.NoteDao
-import com.lankeshwar.vaultnote.data.db.NoteEntity
+import com.lankeshwar.vaultnote.data.db.dao.NoteDao
+import com.lankeshwar.vaultnote.data.db.entity.NoteEntity
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -63,5 +61,9 @@ class NotesRepository @Inject constructor(
 
     suspend fun updateReminder(noteId:Int, reminderTime:Long?, reminderRepeat:String, isEnabled:Boolean){
         noteDao.updateReminder(noteId,reminderTime,reminderRepeat,isEnabled)
+    }
+
+    suspend fun disableOneTimeReminder(noteId:Int){
+        noteDao.disableOneTimeReminder(noteId)
     }
 }

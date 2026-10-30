@@ -3,14 +3,21 @@ package com.lankeshwar.vaultnote.data.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
-import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.driver.SupportSQLiteConnection
-import androidx.sqlite.execSQL
+import com.lankeshwar.vaultnote.data.db.dao.NoteAttachmentDao
+import com.lankeshwar.vaultnote.data.db.dao.NoteDao
+import com.lankeshwar.vaultnote.data.db.dao.NoteDraftDao
+import com.lankeshwar.vaultnote.data.db.dao.TagDao
+import com.lankeshwar.vaultnote.data.db.dao.TaskDao
+import com.lankeshwar.vaultnote.data.db.entity.NoteAttachmentEntity
+import com.lankeshwar.vaultnote.data.db.entity.NoteDraftEntity
+import com.lankeshwar.vaultnote.data.db.entity.NoteEntity
+import com.lankeshwar.vaultnote.data.db.entity.TagEntity
+import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
 
 @Database(
-    entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class,NoteAttachmentEntity::class],
-    version = 13,
+    entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class, NoteAttachmentEntity::class, TaskEntity::class],
+    version = 14,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
@@ -18,6 +25,7 @@ abstract class VaultNoteDatabase: RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun noteDraftDao(): NoteDraftDao
     abstract fun noteAttachmentDao(): NoteAttachmentDao
+    abstract fun taskDao(): TaskDao
     companion object {
 
         val MIGRATION_1_3 = object : Migration(1, 3) {
@@ -206,6 +214,25 @@ abstract class VaultNoteDatabase: RoomDatabase() {
                 )
             }
         }
+
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                isCompleted INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                dueDate INTEGER
+            )
+            """.trimIndent()
+                )
+            }
+        }
+
+
 
     }
 }

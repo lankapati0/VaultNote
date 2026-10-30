@@ -1,8 +1,8 @@
-package com.lankeshwar.vaultnote.data
+package com.lankeshwar.vaultnote.data.repository
 
 import com.lankeshwar.vaultnote.data.db.NoteTagCrossRef
-import com.lankeshwar.vaultnote.data.db.TagDao
-import com.lankeshwar.vaultnote.data.db.TagEntity
+import com.lankeshwar.vaultnote.data.db.dao.TagDao
+import com.lankeshwar.vaultnote.data.db.entity.TagEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject

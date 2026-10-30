@@ -10,6 +10,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +26,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.lankeshwar.vaultnote.data.Note
+import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppInfoScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppLockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.ChangePinScreen
@@ -32,6 +34,8 @@ import com.lankeshwar.vaultnote.screens.SettingSecurity.FingerprintUnlockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.PrivacySecurityScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.RecentlyDeletedScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.TagManagementScreen
+import com.lankeshwar.vaultnote.screens.tasks.TaskEditorScreen
+import com.lankeshwar.vaultnote.screens.tasks.TaskListScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 
@@ -49,18 +53,50 @@ private object Routes {
     const val APP_INFO = "app_info"
     const val RECENTLY_DELETED = "recently_deleted"
     const val TAG_MANAGEMENT = "tag_management"
+    const val TASKS = "tasks"
+    const val CREATE_TASK = "create_task"
+    const val EDIT_TASK = "edit_task"
 }
 
 @RequiresApi(Build.VERSION_CODES.R)
 @Composable
 fun MainScreen(selectTheme: AppTheme? = null,
-               onThemeChange: (AppTheme) -> Unit = {}) {
+               onThemeChange: (AppTheme) -> Unit = {},
+               notificationNoteId:Int? = null,
+               onNotificationHandled:()-> Unit = {}) {
     val notesViewModel: NotesViewModel = hiltViewModel()
     val navController = rememberNavController()
     val backstackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backstackEntry?.destination?.route
+
+    val notes by notesViewModel.notesFlow.collectAsState()
+
+    var handleNotificationNoteId by remember { mutableStateOf<Int?>(null) }
     var selectedNote by remember {
         mutableStateOf<Note?>(null)
+    }
+    var selectedTask by remember { mutableStateOf<TaskEntity?>(null) }
+
+    LaunchedEffect(notificationNoteId,notes) {
+        if (notificationNoteId != null) {
+            val targetNote = notes.find {
+                it.id == notificationNoteId
+            }
+
+            if (targetNote != null) {
+                selectedNote = targetNote
+
+                navController.navigate(Routes.NOTE_DETAIL) {
+                    popUpTo(Routes.NOTES) {
+                        inclusive = false
+                    }
+                    launchSingleTop = true
+                }
+
+                onNotificationHandled()
+            }
+        }
+
     }
 
     Scaffold (
@@ -78,6 +114,19 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     },
                     icon = { Text("📝") },
                     label = {Text("Notes")}
+                )
+                NavigationBarItem(
+                    selected = currentRoute == Routes.TASKS,
+                    onClick = {
+                        navController.navigate(Routes.TASKS){
+                            popUpTo(navController.graph.startDestinationId){
+                                inclusive = true
+                            }
+                            launchSingleTop = true
+                        }
+                    },
+                    icon = { Text("☑️") },
+                    label = { Text("To-do") }
                 )
                 NavigationBarItem(
                     selected = currentRoute == Routes.PRIVATE,
@@ -128,6 +177,8 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
                 )
             }
+
+
 
             composable(route=Routes.CREATE_NOTE){
                 CreateNoteScreen(
@@ -313,6 +364,37 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         }
                     )
                 }
+            }
+
+            composable(Routes.TASKS) {
+                TaskListScreen(
+                    onAddTask = {
+                        selectedTask = null
+                        navController.navigate(Routes.CREATE_TASK)
+                    },
+                    onEditTask = { task ->
+                        selectedTask = task
+                        navController.navigate(Routes.EDIT_TASK)
+                    }
+                )
+            }
+
+            composable(Routes.CREATE_TASK){
+                TaskEditorScreen(
+                    task = null,
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(Routes.EDIT_TASK){
+                TaskEditorScreen(
+                    task = selectedTask,
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
             }
 
             composable(Routes.PRIVATE) {
