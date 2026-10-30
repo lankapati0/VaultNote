@@ -25,6 +25,9 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +44,7 @@ import com.lankeshwar.vaultnote.viewmodels.TaskViewModel
 import java.util.Date
 import java.util.Locale
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun TaskListScreen(onAddTask:()-> Unit,
@@ -49,12 +53,20 @@ fun TaskListScreen(onAddTask:()-> Unit,
     ) {
     val tasks by taskViewModel.tasks.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
-    val filteredTasks = tasks.filter {
-        it.title.contains(searchQuery, ignoreCase = true) || it.description.contains(
-            searchQuery,
-            ignoreCase = true
-        )
+    var selectedFilter by remember {mutableStateOf("All")}
+    val filteredTasks = tasks.filter { task ->
+
+        val matchSearch = task.title.contains(searchQuery, ignoreCase = true) ||
+                task.description.contentEquals(searchQuery, ignoreCase = true)
+
+        val matchesFilter = when (selectedFilter) {
+            "Pending" -> !task.isCompleted
+            "Completed" -> task.isCompleted
+            else -> true
+        }
+        matchSearch && matchesFilter
     }
+
     val pendingTasks = filteredTasks.filter { !it.isCompleted }
         .sortedWith(compareBy<TaskEntity> { it.dueDate == null }.thenBy {
             it.dueDate ?: Long.MAX_VALUE
@@ -62,6 +74,7 @@ fun TaskListScreen(onAddTask:()-> Unit,
 
     val completedTasks = filteredTasks.filter { it.isCompleted }.sortedByDescending { it.createdAt }
     val totalTasks = filteredTasks.size
+
 
     Scaffold(
         floatingActionButton = {
@@ -94,6 +107,22 @@ fun TaskListScreen(onAddTask:()-> Unit,
                     placeholder = { Text("Search Tasks...") }
                 )
 
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    listOf("All","Pending","Completed").forEachIndexed { index, filter ->
+                        SegmentedButton(
+                            selected = selectedFilter == filter,
+                            onClick = {
+                                selectedFilter = filter
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index=index, count = 3)
+                        ) {
+                            Text(filter)
+                        }
+                    }
+                }
+
 
 
                 LazyColumn(
@@ -101,197 +130,207 @@ fun TaskListScreen(onAddTask:()-> Unit,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    if(filteredTasks.isEmpty()){
+                        item {
+                            Text(text="No matching tasks found",
+                                modifier = Modifier.fillMaxWidth()
+                                    .padding(24.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodyLarge)
+                        }
+                    } else {
+                        // New Summary Card
+                        item {
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text("Total")
+                                        Text(
+                                            totalTasks.toString(),
+                                            style = MaterialTheme.typography.titleLarge
+                                        )
+                                    }
 
-                    // New Summary Card
-                    item {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text("Total")
-                                    Text(
-                                        totalTasks.toString(),
-                                        style = MaterialTheme.typography.titleLarge
-                                    )
+                                    Column {
+                                        Text("Pending")
+                                        Text(
+                                            pendingTasks.size.toString(),
+                                            style = MaterialTheme.typography.titleLarge
+                                        )
+                                    }
+
+                                    Column {
+                                        Text("Completed")
+                                        Text(
+                                            completedTasks.size.toString(),
+                                            style = MaterialTheme.typography.titleLarge
+                                        )
+                                    }
+
                                 }
-
-                                Column {
-                                    Text("Pending")
-                                    Text(
-                                        pendingTasks.size.toString(),
-                                        style = MaterialTheme.typography.titleLarge
-                                    )
-                                }
-
-                                Column {
-                                    Text("Completed")
-                                    Text(
-                                        completedTasks.size.toString(),
-                                        style = MaterialTheme.typography.titleLarge
-                                    )
-                                }
-
                             }
                         }
-                    }
 
-                    item {
-                        Text(
-                            text = "Pending (${pendingTasks.size})",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
+                        item {
+                            Text(
+                                text = "Pending (${pendingTasks.size})",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
 
-                    items(items = pendingTasks, key = { it.id }) { task ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth()
-                                .clickable {
-                                    onEditTask(task)
-                                }) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Checkbox(
-                                    checked = task.isCompleted,
-                                    onCheckedChange = { checked ->
-                                        taskViewModel.toggleTask(task.id, checked)
-                                    }
-                                )
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = task.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        textDecoration = if (task.isCompleted)
-                                            TextDecoration.LineThrough
-                                        else
-                                            TextDecoration.None
+                        items(items = pendingTasks, key = { it.id }) { task ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable {
+                                        onEditTask(task)
+                                    }) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = task.isCompleted,
+                                        onCheckedChange = { checked ->
+                                            taskViewModel.toggleTask(task.id, checked)
+                                        }
                                     )
 
-                                    if (task.description.isNotBlank()) {
-                                        Text(task.description)
-                                    }
-
-                                    task.dueDate?.let { date ->
-
-                                        val today = Calendar.getInstance().apply {
-                                            set(Calendar.HOUR_OF_DAY, 0)
-                                            set(Calendar.MINUTE, 0)
-                                            set(Calendar.SECOND, 0)
-                                            set(Calendar.MILLISECOND, 0)
-                                        }.timeInMillis
-
-                                        val dueDay = Calendar.getInstance().apply {
-                                            timeInMillis = date
-                                            set(Calendar.HOUR_OF_DAY, 0)
-                                            set(Calendar.MINUTE, 0)
-                                            set(Calendar.SECOND, 0)
-                                            set(Calendar.MILLISECOND, 0)
-                                        }.timeInMillis
-
-                                        val isOverdue = !task.isCompleted && dueDay < today
-
-                                        Surface(
-                                            color = if (isOverdue)
-                                                MaterialTheme.colorScheme.errorContainer
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = task.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            textDecoration = if (task.isCompleted)
+                                                TextDecoration.LineThrough
                                             else
-                                                MaterialTheme.colorScheme.secondaryContainer,
-                                            shape = RoundedCornerShape(8.dp)
-                                        ) {
-                                            Text(
-                                                text = (if (isOverdue) "Overdue: " else "Due: ") +
-                                                        SimpleDateFormat(
-                                                            "dd MMM yyyy",
-                                                            Locale.getDefault()
-                                                        ).format(Date(date)),
+                                                TextDecoration.None
+                                        )
+
+                                        if (task.description.isNotBlank()) {
+                                            Text(task.description)
+                                        }
+
+                                        task.dueDate?.let { date ->
+
+                                            val today = Calendar.getInstance().apply {
+                                                set(Calendar.HOUR_OF_DAY, 0)
+                                                set(Calendar.MINUTE, 0)
+                                                set(Calendar.SECOND, 0)
+                                                set(Calendar.MILLISECOND, 0)
+                                            }.timeInMillis
+
+                                            val dueDay = Calendar.getInstance().apply {
+                                                timeInMillis = date
+                                                set(Calendar.HOUR_OF_DAY, 0)
+                                                set(Calendar.MINUTE, 0)
+                                                set(Calendar.SECOND, 0)
+                                                set(Calendar.MILLISECOND, 0)
+                                            }.timeInMillis
+
+                                            val isOverdue = !task.isCompleted && dueDay < today
+
+                                            Surface(
                                                 color = if (isOverdue)
-                                                    MaterialTheme.colorScheme.onErrorContainer
+                                                    MaterialTheme.colorScheme.errorContainer
                                                 else
-                                                    MaterialTheme.colorScheme.onSecondaryContainer,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                modifier = Modifier.padding(
-                                                    horizontal = 8.dp,
-                                                    vertical = 4.dp
+                                                    MaterialTheme.colorScheme.secondaryContainer,
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Text(
+                                                    text = (if (isOverdue) "Overdue: " else "Due: ") +
+                                                            SimpleDateFormat(
+                                                                "dd MMM yyyy",
+                                                                Locale.getDefault()
+                                                            ).format(Date(date)),
+                                                    color = if (isOverdue)
+                                                        MaterialTheme.colorScheme.onErrorContainer
+                                                    else
+                                                        MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    modifier = Modifier.padding(
+                                                        horizontal = 8.dp,
+                                                        vertical = 4.dp
+                                                    )
                                                 )
-                                            )
+                                            }
+
                                         }
 
                                     }
 
                                 }
-
                             }
                         }
-                    }
 
-                    item {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Completed (${completedTasks.size})",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Completed (${completedTasks.size})",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
 
-                    items(items = completedTasks, key = { it.id }) { task ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth()
-                                .clickable {
-                                    onEditTask(task)
-                                }) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Checkbox(
-                                    checked = task.isCompleted,
-                                    onCheckedChange = { checked ->
-                                        taskViewModel.toggleTask(task.id, checked)
-                                    }
-                                )
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = task.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        textDecoration = if (task.isCompleted)
-                                            TextDecoration.LineThrough
-                                        else
-                                            TextDecoration.None
+                        items(items = completedTasks, key = { it.id }) { task ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable {
+                                        onEditTask(task)
+                                    }) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = task.isCompleted,
+                                        onCheckedChange = { checked ->
+                                            taskViewModel.toggleTask(task.id, checked)
+                                        }
                                     )
 
-                                    if (task.description.isNotBlank()) {
-                                        Text(task.description)
-                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = task.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            textDecoration = if (task.isCompleted)
+                                                TextDecoration.LineThrough
+                                            else
+                                                TextDecoration.None
+                                        )
 
-                                    task.dueDate?.let { date ->
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.secondaryContainer,
-                                            shape = RoundedCornerShape(8.dp)
-                                        ) {
-                                            Text(
-                                                text = "Due: " +
-                                                        SimpleDateFormat(
-                                                            "dd MMM yyyy",
-                                                            Locale.getDefault()
-                                                        )
-                                                            .format(Date(date)),
-                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                modifier = Modifier.padding(
-                                                    horizontal = 8.dp,
-                                                    vertical = 4.dp
+                                        if (task.description.isNotBlank()) {
+                                            Text(task.description)
+                                        }
+
+                                        task.dueDate?.let { date ->
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Due: " +
+                                                            SimpleDateFormat(
+                                                                "dd MMM yyyy",
+                                                                Locale.getDefault()
+                                                            )
+                                                                .format(Date(date)),
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    modifier = Modifier.padding(
+                                                        horizontal = 8.dp,
+                                                        vertical = 4.dp
+                                                    )
                                                 )
-                                            )
+                                            }
                                         }
                                     }
-                                }
 
+                                }
                             }
                         }
                     }
+
                 }
 
             }
