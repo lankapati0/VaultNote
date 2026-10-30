@@ -2,6 +2,8 @@ package com.lankeshwar.vaultnote.screens
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
@@ -73,8 +75,10 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.ContentScale
@@ -84,6 +88,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.ContextCompat
 import com.lankeshwar.vaultnote.Utils.AudioPlayerUtils
 import com.lankeshwar.vaultnote.Utils.FileUtils
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 import kotlin.contracts.contract
 
 @SuppressLint("QueryPermissionsNeeded")
@@ -93,7 +100,10 @@ fun EditNoteScreen(
     initialTitle: String,
     initialContent: String,
     initialFormattedContent: String,
-    onSave: (String, String, String, List<Uri>, List<Uri>) -> Unit,
+    initialReminderTime: Long?,
+    initialReminderRepeat: String,
+    initialReminderEnabled: Boolean,
+    onSave: (String, String, String, List<Uri>, List<Uri>,Long?, String, Boolean) -> Unit,
     onAutoSave: (String, String, String, () -> Unit) -> Unit,
     onCancel: () -> Unit,
     onAutoSaveDraft: (String, String, String, Boolean) -> Unit,
@@ -104,6 +114,25 @@ fun EditNoteScreen(
     onCancelVoiceRecording: () -> Unit,
 ) {
     val context = LocalContext.current
+
+    var reminderTime by remember(noteId, initialReminderTime) {
+        mutableStateOf(initialReminderTime)
+    }
+
+    var reminderRepeat by remember(noteId, initialReminderRepeat) {
+        mutableStateOf(initialReminderRepeat)
+    }
+
+    var reminderEnabled by remember(noteId, initialReminderEnabled) {
+        mutableStateOf(initialReminderEnabled)
+    }
+
+    val reminderDateText = reminderTime?.let { time ->
+        SimpleDateFormat(
+            "dd MMM yyyy, hh:mm a",
+            Locale.getDefault()
+        ).format(time)
+    } ?: "No reminder set"
 
     // Note content
     var title by remember(noteId, initialTitle) {
@@ -391,6 +420,8 @@ fun EditNoteScreen(
         )
     }
 
+
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -410,6 +441,93 @@ fun EditNoteScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        Text(
+            text = "Reminder",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Text(
+            text = reminderDateText,
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = {
+                    val calendar = Calendar.getInstance().apply {
+                        reminderTime?.let { timeInMillis = it }
+                    }
+
+                    DatePickerDialog(
+                        context,
+                        { _, year, month, day ->
+                            calendar.set(Calendar.YEAR, year)
+                            calendar.set(Calendar.MONTH, month)
+                            calendar.set(Calendar.DAY_OF_MONTH, day)
+
+                            TimePickerDialog(
+                                context,
+                                { _, hour, minute ->
+                                    calendar.set(Calendar.HOUR_OF_DAY, hour)
+                                    calendar.set(Calendar.MINUTE, minute)
+                                    calendar.set(Calendar.SECOND, 0)
+
+                                    reminderTime = calendar.timeInMillis
+                                    reminderEnabled = true
+                                },
+                                calendar.get(Calendar.HOUR_OF_DAY),
+                                calendar.get(Calendar.MINUTE),
+                                false
+                            ).show()
+                        },
+                        calendar.get(Calendar.YEAR),
+                        calendar.get(Calendar.MONTH),
+                        calendar.get(Calendar.DAY_OF_MONTH)
+                    ).show()
+                }
+            ) {
+                Text("Set Date & Time")
+            }
+
+            TextButton (
+                onClick = {
+                    reminderTime = null
+                    reminderEnabled = false
+                    reminderRepeat = "NONE"
+                }
+            ) {
+                Text("Clear")
+            }
+        }
+
+        Text(
+            text = "Repeat",
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf(
+                "NONE" to "Once",
+                "DAILY" to "Daily",
+                "WEEKLY" to "Weekly",
+                "MONTHLY" to "Monthly"
+            ).forEach { (value, label) ->
+                FilterChip(
+                    selected = reminderRepeat == value,
+                    onClick = {
+                        reminderRepeat = value
+                    },
+                    label = {
+                        Text(label)
+                    }
+                )
+            }
+        }
 
         // Editable note title
         OutlinedTextField(
@@ -965,7 +1083,10 @@ fun EditNoteScreen(
                         content.text,
                         savedHtml,
                         selectedImageUris,
-                        selectedFileUris
+                        selectedFileUris,
+                        reminderTime,
+                        reminderRepeat,
+                        reminderEnabled
                     )
                 },
                 modifier = Modifier.weight(1f)

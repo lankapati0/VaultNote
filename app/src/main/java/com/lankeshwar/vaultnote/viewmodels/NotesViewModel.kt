@@ -1,9 +1,11 @@
 package com.lankeshwar.vaultnote.viewmodels
 
+import android.Manifest
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -13,6 +15,7 @@ import com.lankeshwar.vaultnote.data.NotesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.lifecycle.viewModelScope
+import com.lankeshwar.vaultnote.Utils.ReminderScheduler
 import com.lankeshwar.vaultnote.data.Note
 import com.lankeshwar.vaultnote.data.NoteAttachmentRepository
 import com.lankeshwar.vaultnote.data.NoteDraftRepository
@@ -58,7 +61,10 @@ class NotesViewModel @Inject constructor(
                     date = entity.date,
                     isPrivate = entity.isPrivate,
                     isPinned = entity.isPinned,
-                    isFavorite = entity.isFavorite
+                    isFavorite = entity.isFavorite,
+                    reminderTime =  entity.reminderTime,
+                    reminderRepeat = entity.reminderRepeat,
+                    isReminderEnabled = entity.isReminderEnabled
                 )
             }.filter { note ->
                 note.title.contains(query, ignoreCase = true) || note.preview.contains(query, ignoreCase = true)
@@ -86,7 +92,10 @@ class NotesViewModel @Inject constructor(
                         date = entity.date,
                         isPrivate = entity.isPrivate,
                         isPinned = entity.isPinned,
-                        isFavorite = entity.isFavorite
+                        isFavorite = entity.isFavorite,
+                        reminderTime =  entity.reminderTime,
+                        reminderRepeat = entity.reminderRepeat,
+                        isReminderEnabled = entity.isReminderEnabled
                     )
                 }
             }
@@ -108,7 +117,10 @@ class NotesViewModel @Inject constructor(
                         date = entity.date,
                         isPrivate = entity.isPrivate,
                         isFavorite = entity.isFavorite,
-                        isPinned = entity.isPinned
+                        isPinned = entity.isPinned,
+                        reminderTime =  entity.reminderTime,
+                        reminderRepeat = entity.reminderRepeat,
+                        isReminderEnabled = entity.isReminderEnabled
                     )
                 }
             }
@@ -177,6 +189,9 @@ class NotesViewModel @Inject constructor(
                     isPrivate = note.isPrivate,
                     isPinned = note.isPinned,
                     isFavorite = note.isFavorite,
+                    reminderTime =  note.reminderTime,
+                    reminderRepeat = note.reminderRepeat,
+                    isReminderEnabled = note.isReminderEnabled
                 )
             )
             onComplete?.invoke()
@@ -345,6 +360,45 @@ class NotesViewModel @Inject constructor(
             attachmentRepository.addAttachment(attachment)
         }
     }
+
+    fun saveNoteReminder(noteId:Long, title:String, reminderTime: Long?,reminderRepeat: String,isEnabled: Boolean){
+        val id = noteId.toInt()
+        viewModelScope.launch {
+            repository.updateReminder(
+                noteId = id,
+                reminderTime = reminderTime,
+                reminderRepeat = reminderRepeat,
+                isEnabled = isEnabled
+            )
+            val scheduler = ReminderScheduler(context)
+
+            if (isEnabled && reminderTime != null && reminderTime > System.currentTimeMillis()) {
+                scheduler.scheduleReminder(
+                    noteId = id,
+                    title = title,
+                    reminderTime = reminderTime,
+                    reminderRepeat = reminderRepeat
+                )
+            } else {
+                scheduler.cancelReminder(id)
+            }
+        }
+    }
+
+    fun updateReminder(noteId:Int,title: String, reminderTime:Long?, reminderRepeat:String, isEnabled: Boolean, onComplete:()-> Unit={}) {
+        val id = noteId.toInt()
+        viewModelScope.launch {
+            repository.updateReminder(
+                noteId = noteId,
+                reminderTime = reminderTime,
+                reminderRepeat = reminderRepeat,
+                isEnabled = isEnabled
+            )
+            onComplete()
+        }
+    }
+
+
 
 
 }

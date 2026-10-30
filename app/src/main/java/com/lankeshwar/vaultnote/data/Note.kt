@@ -8,5 +8,9 @@ data class Note(
     val date: String,
     val isPinned: Boolean = false,
     val isFavorite: Boolean = false,
-    val isPrivate: Boolean = false
+    val isPrivate: Boolean = false,
+
+    val reminderTime: Long? = null,
+    val reminderRepeat:String = "NONE",
+    val isReminderEnabled: Boolean = false
 )

@@ -53,4 +53,13 @@ interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE isDeleted = 1 ORDER BY id DESC")
     fun getRecentlyDeletedNotes(): Flow<List<NoteEntity>>
+
+    @Query("""
+    UPDATE notes
+    SET reminderTime = :reminderTime,
+        reminderRepeat = :reminderRepeat,
+        isReminderEnabled = :isEnabled
+    WHERE id = :noteId
+""")
+    suspend fun updateReminder(noteId:Int, reminderTime:Long?, reminderRepeat: String, isEnabled: Boolean)
 }

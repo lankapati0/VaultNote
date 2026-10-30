@@ -61,6 +61,7 @@ class NotesRepository @Inject constructor(
         noteDao.permanentlyDeleteNote(noteId)
     }
 
-
-
+    suspend fun updateReminder(noteId:Int, reminderTime:Long?, reminderRepeat:String, isEnabled:Boolean){
+        noteDao.updateReminder(noteId,reminderTime,reminderRepeat,isEnabled)
+    }
 }

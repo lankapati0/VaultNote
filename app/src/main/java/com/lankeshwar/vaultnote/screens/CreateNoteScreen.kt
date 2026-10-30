@@ -1,6 +1,8 @@
 package com.lankeshwar.vaultnote.screens
 
 import android.Manifest
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -63,15 +65,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.ui.text.substring
 import androidx.core.content.ContextCompat
 import com.lankeshwar.vaultnote.Utils.FileUtils
 import java.io.File
+import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.util.Calendar
+import java.util.Locale
 
 @Composable
 fun CreateNoteScreen(
-    onSave: (String, String, String, List<Uri>, List<Uri>,File?)-> Unit,
+    onSave: (String, String, String, List<Uri>, List<Uri>,File?,Long?,String, Boolean)-> Unit,
     onCancel: () -> Unit,
     onAutoSave: (String, String, String, Boolean) -> Unit,
     onLoadDraft: suspend () -> NoteDraftEntity?,
@@ -84,6 +92,14 @@ fun CreateNoteScreen(
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf(TextFieldValue("")) }
     var markdownMode by remember { mutableStateOf(false) }
+
+    var reminderTime by remember { mutableStateOf<Long?>(null) }
+    var reminderRepeat by remember { mutableStateOf("NONE") }
+    var reminderEnabled by remember { mutableStateOf(false) }
+
+    val reminderDateText = reminderTime?.let {time ->
+        SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(time)
+    } ?: "No reminder set"
 
     var isDraftLoaded by remember { mutableStateOf(false) }
 
@@ -323,9 +339,93 @@ fun CreateNoteScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Create Note",            style = MaterialTheme.typography.headlineMedium
+        Text("Create Note", style = MaterialTheme.typography.headlineMedium
         )
 
+
+        Text(
+            text = "Reminder",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Text(
+            text = reminderDateText,
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = {
+                    val calendar = Calendar.getInstance()
+
+                    DatePickerDialog(
+                        context,
+                        { _, year, month, day ->
+                            val selectedCalendar = Calendar.getInstance().apply {
+                                timeInMillis = reminderTime ?: System.currentTimeMillis()
+                                set(Calendar.YEAR, year)
+                                set(Calendar.MONTH, month)
+                                set(Calendar.DAY_OF_MONTH, day)
+                            }
+
+                            TimePickerDialog(
+                                context,
+                                { _, hour, minute ->
+                                    selectedCalendar.set(Calendar.HOUR_OF_DAY, hour)
+                                    selectedCalendar.set(Calendar.MINUTE, minute)
+                                    selectedCalendar.set(Calendar.SECOND, 0)
+
+                                    reminderTime = selectedCalendar.timeInMillis
+                                    reminderEnabled = true
+                                },
+                                calendar.get(Calendar.HOUR_OF_DAY),
+                                calendar.get(Calendar.MINUTE),
+                                false
+                            ).show()
+                        },
+                        calendar.get(Calendar.YEAR),
+                        calendar.get(Calendar.MONTH),
+                        calendar.get(Calendar.DAY_OF_MONTH)
+                    ).show()
+                }
+            ) {
+                Text("Set Date & Time")
+            }
+
+            OutlinedButton(
+                onClick = {
+                    reminderTime = null
+                    reminderEnabled = false
+                    reminderRepeat = "NONE"
+                }
+            ) {
+                Text("Clear")
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ){
+            listOf("NONE","DAILY","WEEKLY","MONTHLY").forEach { repeat ->
+                FilterChip(
+                    selected = reminderRepeat == repeat,
+                    onClick = {reminderRepeat = repeat},
+                    label = {
+                        Text(
+                            when(repeat){
+                                "NONE" -> "ONCE"
+                                "DAILY" -> "Daily"
+                                "WEEKLY" -> "Weekly"
+                                else -> "Monthly"
+                            }
+                        )
+                    }
+                )
+            }
+        }
         Text(
             text = autoSaveStatus,
             style = MaterialTheme.typography.bodySmall,
@@ -664,15 +764,12 @@ fun CreateNoteScreen(
                 } else {
                     RichTextUtils.toHtml(content.annotatedString)
                 }
-
-
-            onSave(title,content.text, savedHtml,selectedImageUris,selectedFileUris,recordedAudioFile)},
+            onSave(title,content.text, savedHtml,selectedImageUris,selectedFileUris,recordedAudioFile,reminderTime,reminderRepeat,reminderEnabled)},
             enabled = title.isNotBlank() || content.text.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Save Note")
         }
-
 
         Button(
             onClick = onCancel,
@@ -681,6 +778,4 @@ fun CreateNoteScreen(
             Text("Cancel")
         }
     }
-
-
 }

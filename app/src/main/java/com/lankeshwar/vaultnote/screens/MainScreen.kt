@@ -131,9 +131,20 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
             composable(route=Routes.CREATE_NOTE){
                 CreateNoteScreen(
-                    onSave = {title,content,formattedContent,imageUris, fileUris,audioFile ->
+                    onSave = {title,content,formattedContent,imageUris, fileUris,audioFile,reminderTime, reminderRepeat, reminderEnabled ->
+
                         notesViewModel.addNote(title,content,formattedContent=formattedContent,
                             onNoteSaved = { noteId ->
+                                if (reminderEnabled){
+                                    notesViewModel.saveNoteReminder(
+                                        noteId = noteId,
+                                        title = title,
+                                        reminderTime = reminderTime,
+                                        reminderRepeat = reminderRepeat,
+                                        isEnabled = reminderEnabled
+                                    )
+                                }
+
                                 notesViewModel.saveImageAttachments(
                                     noteId = noteId,
                                     imageUris = imageUris
@@ -201,7 +212,17 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         initialTitle = note.title,
                         initialContent = note.preview,
                         initialFormattedContent = note.formattedContent,
-                        onSave = {title, content,formattedContent,imageUris,fileUris ->
+                        initialReminderTime = note.reminderTime,
+                        initialReminderRepeat = note.reminderRepeat,
+                        initialReminderEnabled = note.isReminderEnabled,
+                        onSave = {title, content,formattedContent,imageUris,fileUris, reminderTime, reminderRepeat, reminderEnabled ->
+                            notesViewModel.saveNoteReminder(
+                                noteId = note.id.toLong(),
+                                title = title,
+                                reminderTime = reminderTime,
+                                reminderRepeat = reminderRepeat,
+                                isEnabled = reminderEnabled
+                            )
                             notesViewModel.updateNote(
                                 note = note,
                                 title = title,

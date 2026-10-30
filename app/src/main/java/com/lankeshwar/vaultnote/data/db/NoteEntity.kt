@@ -20,5 +20,11 @@ data class NoteEntity(
     @ColumnInfo(defaultValue = "0")
     val isPrivate:Boolean = false,
     @ColumnInfo(defaultValue = "0")
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    @ColumnInfo(defaultValue = "0")
+    val reminderTime: Long? = null,
+    @ColumnInfo(defaultValue = "NONE")
+    val reminderRepeat:String = "NONE",
+    @ColumnInfo(defaultValue = "0")
+    val isReminderEnabled: Boolean = false
 )
