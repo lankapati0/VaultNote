@@ -48,7 +48,9 @@ fun TaskListScreen(onAddTask:()-> Unit,
     ) {
     val tasks by taskViewModel.tasks.collectAsStateWithLifecycle()
     val pendingTasks = tasks.filter { !it.isCompleted }
-    val completedTasks = tasks.filter { it.isCompleted }
+        .sortedWith(compareBy <TaskEntity>{it.dueDate == null}.thenBy { it.dueDate ?: Long.MAX_VALUE })
+
+    val completedTasks = tasks.filter { it.isCompleted }.sortedByDescending { it.createdAt }
     val totalTasks = tasks.size
 
     Scaffold(
