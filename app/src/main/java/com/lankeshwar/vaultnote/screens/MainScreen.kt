@@ -87,6 +87,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var selectedJournalEntry by remember {mutableStateOf<JournalEntity?>(null)}
+    var selectedJournalDate by remember {mutableStateOf("")}
 
     LaunchedEffect(notificationNoteId,notes) {
         if (notificationNoteId != null) {
@@ -640,7 +641,8 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
             composable(Routes.JOURNAL){
                 JournalScreen(
-                    onAddEntry = {
+                    onAddEntry = { date ->
+                        selectedJournalDate = date
                         selectedJournalEntry = null
                         navController.navigate(Routes.JOURNAL_EDITOR)
                     },
@@ -653,10 +655,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
             composable(Routes.JOURNAL_EDITOR) {
                 val selectedDate = selectedJournalEntry?.date
-                    ?: java.text.SimpleDateFormat(
-                        "yyyy-MM-dd",
-                        java.util.Locale.getDefault()
-                    ).format(java.util.Date())
+                    ?: selectedJournalDate
 
                 JournalEditorScreen(
                     date = selectedDate,

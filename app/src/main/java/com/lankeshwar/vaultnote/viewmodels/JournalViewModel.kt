@@ -24,7 +24,8 @@ class JournalViewModel @Inject constructor(
     fun saveEntry(date: String, title: String,content: String,
                   existingEntry: JournalEntity? = null){
         viewModelScope.launch {
-            if(existingEntry == null){
+            val entry = existingEntry ?:repository.getEntryByDate(date)
+            if(entry == null){
                 repository.insertEntity(
                     JournalEntity(date = date,
                         title = title,
@@ -32,7 +33,7 @@ class JournalViewModel @Inject constructor(
                 )
             } else {
                 repository.updateEntity(
-                    existingEntry.copy(
+                    entry.copy(
                         title = title,
                         content = content,
                         updatedAt = System.currentTimeMillis()
@@ -51,6 +52,8 @@ class JournalViewModel @Inject constructor(
     suspend fun getEntryByDate(date: String): JournalEntity? {
         return repository.getEntryByDate(date)
     }
-
+    suspend fun getEntryById(id: Int): JournalEntity? {
+        return repository.getEntryById(id)
+    }
 
 }

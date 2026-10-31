@@ -18,14 +18,25 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lankeshwar.vaultnote.data.db.entity.JournalEntity
 import com.lankeshwar.vaultnote.viewmodels.JournalViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import androidx.compose.ui.platform.LocalLocale
 
 @Composable
 fun JournalScreen(
     journalViewModel: JournalViewModel = hiltViewModel(),
-    onAddEntry:() -> Unit,
+    onAddEntry:(String) -> Unit,
     onEditEntry:(JournalEntity)-> Unit
 ) {
     val entries by journalViewModel.journalEntries.collectAsStateWithLifecycle()
+    var selectedDate by remember {mutableStateOf(
+        SimpleDateFormat("yyyy-MM-dd",Locale.getDefault()).format(Date())
+    )}
+
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState()
 
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp)
@@ -34,13 +45,28 @@ fun JournalScreen(
             text = "Your Daily Journal",
             style = MaterialTheme.typography.headlineSmall
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Your Previous Entries",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
 
-        Button(
-            onClick = onAddEntry,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Write Today's Journal")}
+        Spacer(modifier = Modifier.height(12.dp))
 
+        JournalCalendar(entries = entries,
+            onDateSelected = { selectedDate ->
+                val existingEntry = entries.firstOrNull(){
+                    it.date == selectedDate
+                }
+                if(existingEntry != null){
+                    onEditEntry(existingEntry)
+                } else {
+                    onAddEntry(selectedDate)
+                }
+            })
         Spacer(modifier = Modifier.height(16.dp))
+
 
         if (entries.isEmpty()) {
             Text("No journal entries yet. Start writing today!")
@@ -58,7 +84,19 @@ fun JournalScreen(
                             modifier = Modifier.padding(16.dp)
                         ) {
                             Text(
-                                text = entry.date,
+                                text = try {
+                                    java.text.SimpleDateFormat(
+                                        "EEEE, dd MMMM yyyy",
+                                        java.util.Locale.getDefault()
+                                    ).format(
+                                        java.text.SimpleDateFormat(
+                                            "yyyy-MM-dd",
+                                            java.util.Locale.getDefault()
+                                        ).parse(entry.date)!!
+                                    )
+                                }catch (e: Exception){
+                                    entry.date
+                                },
                                 style = MaterialTheme.typography.labelMedium
                             )
                             Text(

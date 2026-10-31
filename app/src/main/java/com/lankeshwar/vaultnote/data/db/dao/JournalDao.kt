@@ -24,7 +24,7 @@ interface JournalDao {
     fun getAllEntries(): Flow<List<JournalEntity>>
 
     @Query("SELECT * FROM journal_entries WHERE date = :date LIMIT 1")
-    fun getEntryByDate(date:String): JournalEntity?
+    suspend fun getEntryByDate(date:String): JournalEntity?
 
     @Query("SELECT * FROM journal_entries WHERE id = :id LIMIT 1")
     suspend fun getEntryById(id:Int): JournalEntity?
