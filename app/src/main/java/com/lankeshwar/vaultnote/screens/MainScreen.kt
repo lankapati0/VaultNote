@@ -3,18 +3,36 @@ package com.lankeshwar.vaultnote.screens
 import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -38,6 +56,7 @@ import com.lankeshwar.vaultnote.screens.tasks.TaskEditorScreen
 import com.lankeshwar.vaultnote.screens.tasks.TaskListScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
+import kotlinx.coroutines.launch
 
 private object Routes {
     const val NOTES = "notes"
@@ -58,6 +77,7 @@ private object Routes {
     const val EDIT_TASK = "edit_task"
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.R)
 @Composable
 fun MainScreen(selectTheme: AppTheme? = null,
@@ -76,6 +96,9 @@ fun MainScreen(selectTheme: AppTheme? = null,
         mutableStateOf<Note?>(null)
     }
     var selectedTask by remember { mutableStateOf<TaskEntity?>(null) }
+    val context = LocalContext.current
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(notificationNoteId,notes) {
         if (notificationNoteId != null) {
@@ -99,7 +122,170 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
     }
 
+    val shareNotes:()-> Unit = {
+        val note = notes.find { it.id == selectedNote?.id } ?: selectedNote
+        if (note != null) {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, note.title)
+                putExtra(
+                    Intent.EXTRA_TEXT,
+                    "${note.title}\n\n${note.preview}"
+                )
+            }
+
+            context.startActivity(
+                Intent.createChooser(shareIntent, "Share note")
+            )
+        }
+    }
+    ModalNavigationDrawer(
+
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+
+                NavigationDrawerItem(
+                    label = {Text("Notes")},
+                    selected = currentRoute == Routes.NOTES,
+                    icon = { Text("📝") },
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            navController.navigate(Routes.NOTES){
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("To-do") },
+                    selected = currentRoute == Routes.TASKS,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            navController.navigate(Routes.TASKS) {
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    icon = { Text("☑️") }
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Private") },
+                    selected = currentRoute == Routes.PRIVATE,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            navController.navigate(Routes.PRIVATE) {
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    icon = { Text("🔒") }
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Settings") },
+                    selected = currentRoute == Routes.SETTINGS,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            navController.navigate(Routes.SETTINGS) {
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    icon = { Text("⚙️") }
+                )
+
+/*                NavigationDrawerItem(
+                    label = { Text("Recently Deleted") },
+                    selected = currentRoute == Routes.RECENTLY_DELETED,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            navController.navigate(Routes.RECENTLY_DELETED) {
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                    icon = { Text("🗑️") }
+                )*/
+            }
+        }
+    ) {
+        val screenTitle = when(currentRoute){
+            Routes.NOTES -> "VaultNote"
+            Routes.TASKS -> "To-do"
+            Routes.PRIVATE -> "Private"
+            Routes.SETTINGS -> "Settings"
+            Routes.RECENTLY_DELETED -> "Recently Deleted"
+            Routes.CREATE_NOTE -> "Create Note"
+            Routes.EDIT_NOTE -> "Edit Note"
+            Routes.NOTE_DETAIL -> "Note Detail"
+            Routes.CREATE_TASK -> "Create Task"
+            Routes.EDIT_TASK -> "Edit Task"
+            Routes.PRIVACY_SECURITY -> "Privacy & Security"
+            Routes.CHANGE_PIN -> "Change PIN"
+            Routes.FINGERPRINT_UNLOCK -> "Fingerprint Unlock"
+            Routes.APP_LOCK -> "App Lock"
+            Routes.APP_INFO -> "About VaultNote"
+            Routes.TAG_MANAGEMENT -> "Manage Tags"
+            else -> "VaultNote"
+        }
     Scaffold (
+        topBar = {
+            TopAppBar(
+                title = {Text(text = screenTitle) },
+                navigationIcon = {
+
+                    if(
+                        currentRoute == Routes.NOTES ||
+                        currentRoute == Routes.TASKS ||
+                        currentRoute == Routes.PRIVATE ||
+                        currentRoute == Routes.SETTINGS
+                    ){
+                        IconButton(onClick = {
+                            scope.launch { drawerState.open() }
+                        }) {
+                            Icon(imageVector = Icons.Default.Menu,contentDescription = "Open navigation menu")
+                        }
+                    } else {
+                        IconButton(onClick = {
+                         navController.popBackStack()
+                        }) {
+                            Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack,contentDescription = "Go Back")
+                        }
+                    }
+                },
+                actions = {
+                    if(currentRoute == Routes.NOTE_DETAIL){
+                        IconButton(
+                            onClick = {
+                                navController.navigate(Routes.EDIT_NOTE)
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Note"
+                            )
+                        }
+
+                        IconButton(
+                            onClick = shareNotes
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share Note"
+                            )
+                        }
+                    }
+                }
+            )
+        },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -162,15 +348,15 @@ fun MainScreen(selectTheme: AppTheme? = null,
         NavHost(
             navController = navController,
             startDestination = Routes.NOTES,
-            modifier = Modifier.padding(innerPadding)
-        ){
+            modifier = Modifier.padding(innerPadding).fillMaxSize()
+        ) {
             composable(route = Routes.NOTES) {
                 NotesScreen(
-                  notesViewModel = notesViewModel,
+                    notesViewModel = notesViewModel,
                     onAddNote = {
                         navController.navigate(Routes.CREATE_NOTE)
                     },
-                    onEditNote = {note ->
+                    onEditNote = { note ->
                         selectedNote = note
                         navController.navigate(Routes.NOTE_DETAIL)
                     }
@@ -178,15 +364,14 @@ fun MainScreen(selectTheme: AppTheme? = null,
                 )
             }
 
-
-
-            composable(route=Routes.CREATE_NOTE){
+            composable(route = Routes.CREATE_NOTE) {
                 CreateNoteScreen(
-                    onSave = {title,content,formattedContent,imageUris, fileUris,audioFile,reminderTime, reminderRepeat, reminderEnabled ->
+                    onSave = { title, content, formattedContent, imageUris, fileUris, audioFile, reminderTime, reminderRepeat, reminderEnabled ->
 
-                        notesViewModel.addNote(title,content,formattedContent=formattedContent,
+                        notesViewModel.addNote(
+                            title, content, formattedContent = formattedContent,
                             onNoteSaved = { noteId ->
-                                if (reminderEnabled){
+                                if (reminderEnabled) {
                                     notesViewModel.saveNoteReminder(
                                         noteId = noteId,
                                         title = title,
@@ -219,7 +404,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     onCancel = {
                         navController.popBackStack()
                     },
-                    onAutoSave = { title,content, formattedContent, isMarkdown ->
+                    onAutoSave = { title, content, formattedContent, isMarkdown ->
                         notesViewModel.saveDraft(
                             draftId = "new_note",
                             title = title,
@@ -252,12 +437,12 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         navController.popBackStack()
                     },
 
-                )
+                    )
             }
 
-            composable (Routes.EDIT_NOTE){
+            composable(Routes.EDIT_NOTE) {
                 val note = selectedNote
-                if (note != null){
+                if (note != null) {
                     EditNoteScreen(
                         noteId = note.id,
                         initialTitle = note.title,
@@ -266,7 +451,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         initialReminderTime = note.reminderTime,
                         initialReminderRepeat = note.reminderRepeat,
                         initialReminderEnabled = note.isReminderEnabled,
-                        onSave = {title, content,formattedContent,imageUris,fileUris, reminderTime, reminderRepeat, reminderEnabled ->
+                        onSave = { title, content, formattedContent, imageUris, fileUris, reminderTime, reminderRepeat, reminderEnabled ->
                             notesViewModel.saveNoteReminder(
                                 noteId = note.id.toLong(),
                                 title = title,
@@ -294,7 +479,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                                 }
                             )
                         },
-                        onAutoSave = {title,content, formattedContent,onComplete ->
+                        onAutoSave = { title, content, formattedContent, onComplete ->
                             notesViewModel.updateNote(
                                 note = note,
                                 title = title,
@@ -309,7 +494,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         onCancel = {
                             navController.popBackStack()
                         },
-                        onAutoSaveDraft = {title,content,formattedContent,isMarkdown ->
+                        onAutoSaveDraft = { title, content, formattedContent, isMarkdown ->
                             notesViewModel.saveDraft(
                                 draftId = "edit_note_${note.id}",
                                 title = title,
@@ -337,10 +522,10 @@ fun MainScreen(selectTheme: AppTheme? = null,
                 }
             }
 
-            composable(Routes.NOTE_DETAIL){
+            composable(Routes.NOTE_DETAIL) {
                 val notes by notesViewModel.notesFlow.collectAsState()
-                val note = notes.find {it.id == selectedNote?.id} ?: selectedNote
-                if(note != null){
+                val note = notes.find { it.id == selectedNote?.id } ?: selectedNote
+                if (note != null) {
                     NoteDetailScreen(
                         noteId = note.id,
                         title = note.title,
@@ -353,10 +538,10 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         onShare = {
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT,note.title)
-                                putExtra(Intent.EXTRA_TEXT,"${note.title}\n\n${note.preview}")
+                                putExtra(Intent.EXTRA_SUBJECT, note.title)
+                                putExtra(Intent.EXTRA_TEXT, "${note.title}\n\n${note.preview}")
                             }
-                            context.startActivity(Intent.createChooser(shareIntent,"Share note"))
+                            context.startActivity(Intent.createChooser(shareIntent, "Share note"))
 
                         },
                         onEdit = {
@@ -379,7 +564,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                 )
             }
 
-            composable(Routes.CREATE_TASK){
+            composable(Routes.CREATE_TASK) {
                 TaskEditorScreen(
                     task = null,
                     onBack = {
@@ -388,7 +573,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                 )
             }
 
-            composable(Routes.EDIT_TASK){
+            composable(Routes.EDIT_TASK) {
                 TaskEditorScreen(
                     task = selectedTask,
                     onBack = {
@@ -400,7 +585,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
             composable(Routes.PRIVATE) {
                 PrivateNotesScreen(
                     notesViewModel = notesViewModel,
-                    onNoteClick = {note ->
+                    onNoteClick = { note ->
                         selectedNote = note
                         navController.navigate(Routes.NOTE_DETAIL)
                     }
@@ -408,7 +593,8 @@ fun MainScreen(selectTheme: AppTheme? = null,
             }
             composable(Routes.SETTINGS) {
 
-                SettingsScreen(onThemeChange = onThemeChange,
+                SettingsScreen(
+                    onThemeChange = onThemeChange,
                     onPrivacySecurityClick = {
                         navController.navigate(Routes.PRIVACY_SECURITY)
                     },
@@ -425,28 +611,29 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
             }
 
-            composable(Routes.PRIVACY_SECURITY){
-                PrivacySecurityScreen(onPinClick = {
-                    navController.navigate(Routes.CHANGE_PIN)
-                },
-                onFingerprintClick = {
-                    navController.navigate(Routes.FINGERPRINT_UNLOCK)
-                },
-                onAppLockClick = {
-                    navController.navigate(Routes.APP_LOCK)
-                })
+            composable(Routes.PRIVACY_SECURITY) {
+                PrivacySecurityScreen(
+                    onPinClick = {
+                        navController.navigate(Routes.CHANGE_PIN)
+                    },
+                    onFingerprintClick = {
+                        navController.navigate(Routes.FINGERPRINT_UNLOCK)
+                    },
+                    onAppLockClick = {
+                        navController.navigate(Routes.APP_LOCK)
+                    })
             }
 
             composable(Routes.CHANGE_PIN) {
                 ChangePinScreen(onBack = {
-                        navController.popBackStack()
+                    navController.popBackStack()
                 })
             }
             composable(Routes.FINGERPRINT_UNLOCK) {
                 FingerprintUnlockScreen()
             }
 
-            composable(Routes.APP_LOCK){
+            composable(Routes.APP_LOCK) {
                 AppLockScreen()
             }
             composable(Routes.APP_INFO) {
@@ -456,11 +643,12 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     }
                 )
             }
-            composable(Routes.TAG_MANAGEMENT){
+            composable(Routes.TAG_MANAGEMENT) {
                 TagManagementScreen(onBack = {
                     navController.popBackStack()
                 })
             }
         }
+    }
     }
 }

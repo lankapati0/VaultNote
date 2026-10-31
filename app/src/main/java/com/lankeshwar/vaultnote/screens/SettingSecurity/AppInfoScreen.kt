@@ -36,7 +36,7 @@ fun AppInfoScreen(onBack:()-> Unit){
     ) {
         Row(Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
+/*            IconButton(onClick = onBack) {
                 androidx.compose.material3.Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back"
@@ -45,7 +45,7 @@ fun AppInfoScreen(onBack:()-> Unit){
             Text(
                 text = "About VaultNote",
                 style = MaterialTheme.typography.titleLarge
-            )
+            )*/
         }
 
         Card(Modifier.fillMaxWidth(),

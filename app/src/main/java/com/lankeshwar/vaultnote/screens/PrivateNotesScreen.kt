@@ -224,7 +224,7 @@ fun PrivateNotesScreen(
     Column(modifier = Modifier
         .fillMaxSize()
         .padding(16.dp)) {
-        Text(text = "🔒 Private Notes", style = MaterialTheme.typography.headlineMedium)
+/*        Text(text = "🔒 Private Notes", style = MaterialTheme.typography.headlineMedium)*/
 
         OutlinedTextField(value = title,
             onValueChange = {title = it},

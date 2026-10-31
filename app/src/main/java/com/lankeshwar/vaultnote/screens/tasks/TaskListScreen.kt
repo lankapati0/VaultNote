@@ -19,9 +19,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -87,14 +91,14 @@ fun TaskListScreen(onAddTask:()-> Unit,
     ) { padding ->
         if (tasks.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Text("No tasks yet. Add your first task!")
             }
         } else {
 
-            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = {
@@ -104,7 +108,14 @@ fun TaskListScreen(onAddTask:()-> Unit,
                         .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
-                    placeholder = { Text("Search Tasks...") }
+                    placeholder = { Text("Search Tasks...") },
+                    trailingIcon = {
+                        if(searchQuery.isNotEmpty()){
+                            IconButton(onClick = {searchQuery= ""}) {
+                                Icon(imageVector = Icons.Default.Close, contentDescription = "Clear Search")
+                            }
+                        }
+                    }
                 )
 
                 SingleChoiceSegmentedButtonRow(

@@ -423,11 +423,11 @@ fun EditNoteScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Screen heading
+/*        // Screen heading
         Text(
             text = "Edit Note",
             style = MaterialTheme.typography.headlineMedium
-        )
+        )*/
 
         Text(
             text = autoSaveStatus,

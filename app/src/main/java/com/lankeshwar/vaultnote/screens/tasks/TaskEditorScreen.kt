@@ -45,11 +45,11 @@ fun TaskEditorScreen(task: TaskEntity? = null,
     Column(modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
 
-        TextButton(onClick = {onBack}) {Text("← Back") }
-        Text(
+/*        TextButton(onClick = {onBack}) {Text("← Back") }*/
+/*        Text(
             text = if(task == null) "Add Task" else "Edit Task",
             style = MaterialTheme.typography.headlineSmall
-        )
+        )*/
 
         OutlinedTextField(
             value = title,

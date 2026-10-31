@@ -42,7 +42,7 @@ fun RecentlyDeletedScreen(notesViewModel: NotesViewModel = hiltViewModel(), onBa
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
+/*            IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.Default.ArrowBack,
                     contentDescription = "Back"
@@ -52,7 +52,7 @@ fun RecentlyDeletedScreen(notesViewModel: NotesViewModel = hiltViewModel(), onBa
             Text(
                 text = "Recently Deleted",
                 style = MaterialTheme.typography.headlineSmall
-            )
+            )*/
         }
 
         Spacer(modifier = Modifier.height(16.dp))

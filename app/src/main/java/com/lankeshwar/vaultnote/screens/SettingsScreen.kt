@@ -44,12 +44,16 @@ fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
             .fillMaxSize()
             .padding(20.dp)
     ) {
+/*
         Text(
             text = "Settings",
             style = MaterialTheme.typography.headlineMedium
         )
+*/
+/*
 
         Spacer(modifier = Modifier.height(24.dp))
+*/
 
         Text(
             text = "General",

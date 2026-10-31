@@ -19,8 +19,8 @@ fun PrivacySecurityScreen(
 ){
     Column(Modifier.padding(20.dp).fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(text = "Privacy & Security",
-            style = MaterialTheme.typography.headlineMedium)
+/*        Text(text = "Privacy & Security",
+            style = MaterialTheme.typography.headlineMedium)*/
 
         SettingsItem(
             title = "Private Notes PIN",

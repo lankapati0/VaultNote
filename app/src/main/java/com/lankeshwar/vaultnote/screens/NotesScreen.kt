@@ -9,14 +9,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
@@ -50,15 +53,16 @@ fun NotesScreen(
         }
     ) {innerPadding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(innerPadding)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+            modifier = Modifier.fillMaxSize()
+                .padding(horizontal = 20.dp)
             , verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "My Notes",
-                style = MaterialTheme.typography.headlineLarge
 
-            )
+/*                Text(
+                    text = "My Notes",
+                    style = MaterialTheme.typography.headlineLarge
+                )
+            }*/
             Text(
                 text = notesViewModel.welcomeMessage,
                 style = MaterialTheme.typography.bodyMedium,

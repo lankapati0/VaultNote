@@ -132,7 +132,7 @@ fun NoteDetailScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            IconButton(onClick = onBack) {
+/*            IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back"
@@ -143,9 +143,9 @@ fun NoteDetailScreen(
                 text = "Note Details",
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f)
-            )
+            )*/
 
-            IconButton(onClick = onEdit) {
+/*            IconButton(onClick = onEdit) {
                 Icon(
                     imageVector = Icons.Default.Edit,
                     contentDescription = "Edit Note"
@@ -157,7 +157,7 @@ fun NoteDetailScreen(
                     imageVector = Icons.Default.Share,
                     contentDescription = "Share note"
                 )
-            }
+            }*/
         }
 
         Text(text=title, style = MaterialTheme.typography.headlineMedium)

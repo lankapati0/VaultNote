@@ -75,7 +75,7 @@ fun TagManagementScreen(
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
+/*            IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.Default.ArrowBack,
                     contentDescription = "Back"
@@ -85,7 +85,7 @@ fun TagManagementScreen(
             Text(
                 text = "Manage Tags",
                 style = MaterialTheme.typography.headlineSmall
-            )
+            )*/
         }
 
         Spacer(modifier = Modifier.height(20.dp))
