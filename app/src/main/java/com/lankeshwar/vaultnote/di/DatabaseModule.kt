@@ -36,7 +36,7 @@ object DatabaseModule {
                 VaultNoteDatabase.MIGRATION_10_11,
                 VaultNoteDatabase.MIGRATION_11_12,VaultNoteDatabase.MIGRATION_12_13,
                 VaultNoteDatabase.MIGRATION_13_14,
-                VaultNoteDatabase.MIGRATION_14_15)
+                VaultNoteDatabase.MIGRATION_14_15,VaultNoteDatabase.MIGRATION_15_16)
             .build()
     }
 

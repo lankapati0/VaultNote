@@ -4,4 +4,10 @@
     <files-path
         name="attachments"
         path="attachments"/>
+    <cache-path
+        name="journal_pdfs"
+        path="." />
+    <cache-path
+        name="shared_pdfs"
+        path="." />
 </paths>

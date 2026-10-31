@@ -20,7 +20,7 @@ import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
 @Database(
     entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class, NoteAttachmentEntity::class, TaskEntity::class,
         JournalEntity::class],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
@@ -258,6 +258,16 @@ abstract class VaultNoteDatabase: RoomDatabase() {
                 )
             }
         }
+
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE journal_entries ADD COLUMN mood TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
+
+
 
 
     }
