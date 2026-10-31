@@ -4,11 +4,13 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.lankeshwar.vaultnote.data.db.dao.JournalDao
 import com.lankeshwar.vaultnote.data.db.dao.NoteAttachmentDao
 import com.lankeshwar.vaultnote.data.db.dao.NoteDao
 import com.lankeshwar.vaultnote.data.db.dao.NoteDraftDao
 import com.lankeshwar.vaultnote.data.db.dao.TagDao
 import com.lankeshwar.vaultnote.data.db.dao.TaskDao
+import com.lankeshwar.vaultnote.data.db.entity.JournalEntity
 import com.lankeshwar.vaultnote.data.db.entity.NoteAttachmentEntity
 import com.lankeshwar.vaultnote.data.db.entity.NoteDraftEntity
 import com.lankeshwar.vaultnote.data.db.entity.NoteEntity
@@ -16,8 +18,9 @@ import com.lankeshwar.vaultnote.data.db.entity.TagEntity
 import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
 
 @Database(
-    entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class, NoteAttachmentEntity::class, TaskEntity::class],
-    version = 14,
+    entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class, NoteAttachmentEntity::class, TaskEntity::class,
+        JournalEntity::class],
+    version = 15,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
@@ -26,6 +29,7 @@ abstract class VaultNoteDatabase: RoomDatabase() {
     abstract fun noteDraftDao(): NoteDraftDao
     abstract fun noteAttachmentDao(): NoteAttachmentDao
     abstract fun taskDao(): TaskDao
+    abstract fun journalDao(): JournalDao
     companion object {
 
         val MIGRATION_1_3 = object : Migration(1, 3) {
@@ -231,7 +235,29 @@ abstract class VaultNoteDatabase: RoomDatabase() {
                 )
             }
         }
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+            CREATE TABLE IF NOT EXISTS journal_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                date TEXT NOT NULL,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL
+            )
+            """.trimIndent()
+                )
 
+                db.execSQL(
+                    """
+            CREATE UNIQUE INDEX IF NOT EXISTS index_journal_entries_date
+            ON journal_entries(date)
+            """.trimIndent()
+                )
+            }
+        }
 
 
     }

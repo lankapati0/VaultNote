@@ -43,7 +43,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.lankeshwar.vaultnote.Utils.Routes
 import com.lankeshwar.vaultnote.data.Note
+import com.lankeshwar.vaultnote.data.db.entity.JournalEntity
 import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppInfoScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppLockScreen
@@ -52,30 +54,15 @@ import com.lankeshwar.vaultnote.screens.SettingSecurity.FingerprintUnlockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.PrivacySecurityScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.RecentlyDeletedScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.TagManagementScreen
+import com.lankeshwar.vaultnote.screens.journal.JournalEditorScreen
+import com.lankeshwar.vaultnote.screens.journal.JournalScreen
 import com.lankeshwar.vaultnote.screens.tasks.TaskEditorScreen
 import com.lankeshwar.vaultnote.screens.tasks.TaskListScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 import kotlinx.coroutines.launch
 
-private object Routes {
-    const val NOTES = "notes"
-    const val CREATE_NOTE = "create_note"
-    const val EDIT_NOTE = "edit_note"
-    const val NOTE_DETAIL = "note_detail"
-    const val PRIVATE = "private"
-    const val SETTINGS = "settings"
-    const val PRIVACY_SECURITY = "privacy_security"
-    const val CHANGE_PIN = "change_pin"
-    const val FINGERPRINT_UNLOCK = "fingerprint_unlock"
-    const val APP_LOCK = "app_lock"
-    const val APP_INFO = "app_info"
-    const val RECENTLY_DELETED = "recently_deleted"
-    const val TAG_MANAGEMENT = "tag_management"
-    const val TASKS = "tasks"
-    const val CREATE_TASK = "create_task"
-    const val EDIT_TASK = "edit_task"
-}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.R)
@@ -99,6 +86,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
     val context = LocalContext.current
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    var selectedJournalEntry by remember {mutableStateOf<JournalEntity?>(null)}
 
     LaunchedEffect(notificationNoteId,notes) {
         if (notificationNoteId != null) {
@@ -201,19 +189,19 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     icon = { Text("⚙️") }
                 )
 
-/*                NavigationDrawerItem(
-                    label = { Text("Recently Deleted") },
-                    selected = currentRoute == Routes.RECENTLY_DELETED,
+                NavigationDrawerItem(
+                    label = { Text("Daily Journal") },
+                    selected = currentRoute == Routes.JOURNAL,
                     onClick = {
                         scope.launch {
                             drawerState.close()
-                            navController.navigate(Routes.RECENTLY_DELETED) {
+                            navController.navigate(Routes.JOURNAL) {
                                 launchSingleTop = true
                             }
                         }
                     },
-                    icon = { Text("🗑️") }
-                )*/
+                    icon = { Text("📔") },
+                )
             }
         }
     ) {
@@ -234,6 +222,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
             Routes.APP_LOCK -> "App Lock"
             Routes.APP_INFO -> "About VaultNote"
             Routes.TAG_MANAGEMENT -> "Manage Tags"
+            Routes.JOURNAL -> "Daily Journal"
             else -> "VaultNote"
         }
     Scaffold (
@@ -648,6 +637,37 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     navController.popBackStack()
                 })
             }
+
+            composable(Routes.JOURNAL){
+                JournalScreen(
+                    onAddEntry = {
+                        selectedJournalEntry = null
+                        navController.navigate(Routes.JOURNAL_EDITOR)
+                    },
+                    onEditEntry = { journalEntity ->
+                        selectedJournalEntry = journalEntity
+                        navController.navigate(Routes.JOURNAL_EDITOR)
+                    }
+                )
+            }
+
+            composable(Routes.JOURNAL_EDITOR) {
+                val selectedDate = selectedJournalEntry?.date
+                    ?: java.text.SimpleDateFormat(
+                        "yyyy-MM-dd",
+                        java.util.Locale.getDefault()
+                    ).format(java.util.Date())
+
+                JournalEditorScreen(
+                    date = selectedDate,
+                    existingEntry = selectedJournalEntry,
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+
         }
     }
     }
