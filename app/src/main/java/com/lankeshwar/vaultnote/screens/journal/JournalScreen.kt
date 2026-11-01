@@ -12,12 +12,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,10 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lankeshwar.vaultnote.data.db.entity.JournalEntity
 import com.lankeshwar.vaultnote.viewmodels.JournalViewModel
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
-import androidx.compose.ui.platform.LocalLocale
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -40,7 +39,8 @@ import java.time.LocalDate
 fun JournalScreen(
     journalViewModel: JournalViewModel = hiltViewModel(),
     onAddEntry: (String) -> Unit,
-    onEditEntry: (JournalEntity) -> Unit
+    onEditEntry: (JournalEntity) -> Unit,
+    onChooseTemplate:(String)->Unit
 ) {
     val entries by journalViewModel.journalEntries.collectAsStateWithLifecycle()
 
@@ -96,10 +96,27 @@ fun JournalScreen(
 
         // Journal heading
         item {
-            Text(
-                text = "Your Daily Journal",
-                style = MaterialTheme.typography.headlineSmall
-            )
+            Row( modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically){
+                Text(
+                    text = "Your Daily Journal",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                OutlinedButton(
+                    onClick = {
+                        onChooseTemplate(LocalDate.now().toString())
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Templates")
+                }
+            }
+
         }
 
         // Current streak card

@@ -19,4 +19,5 @@ object Routes {
     const val EDIT_TASK = "edit_task"
     const val JOURNAL = "journal"
     const val JOURNAL_EDITOR = "journal_editor"
+    const val JOURNAL_TEMPLATES = "journal_templates"
 }

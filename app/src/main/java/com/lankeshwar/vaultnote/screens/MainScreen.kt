@@ -3,7 +3,6 @@ package com.lankeshwar.vaultnote.screens
 import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -13,10 +12,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.*
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
@@ -47,6 +43,7 @@ import com.lankeshwar.vaultnote.Utils.Routes
 import com.lankeshwar.vaultnote.data.Note
 import com.lankeshwar.vaultnote.data.db.entity.JournalEntity
 import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
+import com.lankeshwar.vaultnote.data.model.JournalTemplate
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppInfoScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppLockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.ChangePinScreen
@@ -56,12 +53,13 @@ import com.lankeshwar.vaultnote.screens.SettingSecurity.RecentlyDeletedScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.TagManagementScreen
 import com.lankeshwar.vaultnote.screens.journal.JournalEditorScreen
 import com.lankeshwar.vaultnote.screens.journal.JournalScreen
+import com.lankeshwar.vaultnote.screens.journal.JournalTemplateScreen
 import com.lankeshwar.vaultnote.screens.tasks.TaskEditorScreen
 import com.lankeshwar.vaultnote.screens.tasks.TaskListScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 import kotlinx.coroutines.launch
-
+import java.time.LocalDate
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,6 +86,10 @@ fun MainScreen(selectTheme: AppTheme? = null,
     val scope = rememberCoroutineScope()
     var selectedJournalEntry by remember {mutableStateOf<JournalEntity?>(null)}
     var selectedJournalDate by remember {mutableStateOf("")}
+    var selectedJournalTemplate by remember {
+        mutableStateOf<JournalTemplate?>(null)
+    }
+    var openedTempleteFromEditor by remember{mutableStateOf(false)}
 
     LaunchedEffect(notificationNoteId,notes) {
         if (notificationNoteId != null) {
@@ -644,11 +646,18 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     onAddEntry = { date ->
                         selectedJournalDate = date
                         selectedJournalEntry = null
+                        selectedJournalTemplate = null
                         navController.navigate(Routes.JOURNAL_EDITOR)
                     },
                     onEditEntry = { journalEntity ->
                         selectedJournalEntry = journalEntity
                         navController.navigate(Routes.JOURNAL_EDITOR)
+                    },
+                    onChooseTemplate = { date ->
+                        selectedJournalDate = date
+                        selectedJournalEntry = null
+                        selectedJournalTemplate = null
+                        navController.navigate(Routes.JOURNAL_TEMPLATES)
                     }
                 )
             }
@@ -660,13 +669,48 @@ fun MainScreen(selectTheme: AppTheme? = null,
                 JournalEditorScreen(
                     date = selectedDate,
                     existingEntry = selectedJournalEntry,
+                    templateToInsert = selectedJournalTemplate,
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onChooseTemplate = {
+                        openedTempleteFromEditor = true
+                        navController.navigate(Routes.JOURNAL_TEMPLATES)
+                    },
+                    onTemplateConsumed = {
+                        selectedJournalTemplate = null
+                    }
+                )
+            }
+
+            composable( Routes.JOURNAL_TEMPLATES){
+                JournalTemplateScreen(
+                    onTemplateSelected = { template ->
+                        selectedJournalTemplate = template
+                        if(openedTempleteFromEditor){
+                            openedTempleteFromEditor = false
+                            navController.popBackStack()
+                        } else {
+                            navController.navigate(Routes.JOURNAL_EDITOR)
+                        }
+                    },
+                    onStartBlank = {
+                        if(openedTempleteFromEditor){
+                            openedTempleteFromEditor = false
+                            selectedJournalTemplate = null
+                            navController.popBackStack()
+                        }else {
+                            selectedJournalTemplate = null
+                            selectedJournalEntry = null
+                            navController.navigate(Routes.JOURNAL_EDITOR)
+                        }
+                    },
+
                     onBack = {
                         navController.popBackStack()
                     }
                 )
             }
-
-
         }
     }
     }
