@@ -10,6 +10,7 @@ import com.lankeshwar.vaultnote.data.db.dao.TagDao
 import com.lankeshwar.vaultnote.data.db.VaultNoteDatabase
 import com.lankeshwar.vaultnote.data.db.dao.JournalDao
 import com.lankeshwar.vaultnote.data.db.dao.TaskDao
+import com.lankeshwar.vaultnote.data.model.JournalPhotoDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -36,7 +37,8 @@ object DatabaseModule {
                 VaultNoteDatabase.MIGRATION_10_11,
                 VaultNoteDatabase.MIGRATION_11_12,VaultNoteDatabase.MIGRATION_12_13,
                 VaultNoteDatabase.MIGRATION_13_14,
-                VaultNoteDatabase.MIGRATION_14_15,VaultNoteDatabase.MIGRATION_15_16)
+                VaultNoteDatabase.MIGRATION_14_15,VaultNoteDatabase.MIGRATION_15_16,
+                VaultNoteDatabase.MIGRATION_16_17)
             .build()
     }
 
@@ -77,5 +79,8 @@ object DatabaseModule {
     fun provideJournalDao(database: VaultNoteDatabase): JournalDao {
         return database.journalDao()
     }
-
+    @Provides
+    fun provideJournalPhotoDao(database: VaultNoteDatabase): JournalPhotoDao {
+        return database.journalPhotosDao()
+    }
 }

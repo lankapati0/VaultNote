@@ -10,8 +10,8 @@ class JournalRepository @Inject constructor(
 ){
     val allEntries: Flow<List<JournalEntity>> = journalDao.getAllEntries()
 
-    suspend fun insertEntity(entity: JournalEntity){
-        journalDao.insertEntry(entity)
+    suspend fun insertEntity(entity: JournalEntity): Long{
+        return journalDao.insertEntry(entity)
     }
 
     suspend fun updateEntity(entity: JournalEntity){

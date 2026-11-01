@@ -43,6 +43,31 @@ class JournalViewModel @Inject constructor(
         }
     }
 
+    suspend fun saveEntryAndGetId(
+        date: String,title:String,content: String,mood: String,
+        existingEntry: JournalEntity? = null
+    ): Long{
+        val entry = existingEntry ?: repository.getEntryByDate(date)
+
+        return if(entry == null){
+            repository.insertEntity(
+                JournalEntity(
+                    date = date, title = title, content = content, mood = mood
+                )
+            )
+        } else {
+            repository.updateEntity(
+                entry.copy(
+                    title = title,
+                    content = content,
+                    mood = mood,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+            entry.id.toLong()
+        }
+    }
+
     fun deleteEntry(entry: JournalEntity){
         viewModelScope.launch {
             repository.deleteEntity(entry)

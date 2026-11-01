@@ -16,11 +16,13 @@ import com.lankeshwar.vaultnote.data.db.entity.NoteDraftEntity
 import com.lankeshwar.vaultnote.data.db.entity.NoteEntity
 import com.lankeshwar.vaultnote.data.db.entity.TagEntity
 import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
+import com.lankeshwar.vaultnote.data.model.JournalPhotoDao
+import com.lankeshwar.vaultnote.data.model.JournalPhotoEntity
 
 @Database(
     entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class, NoteAttachmentEntity::class, TaskEntity::class,
-        JournalEntity::class],
-    version = 16,
+        JournalEntity::class, JournalPhotoEntity::class],
+    version = 17,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
@@ -30,8 +32,9 @@ abstract class VaultNoteDatabase: RoomDatabase() {
     abstract fun noteAttachmentDao(): NoteAttachmentDao
     abstract fun taskDao(): TaskDao
     abstract fun journalDao(): JournalDao
-    companion object {
+    abstract fun journalPhotosDao(): JournalPhotoDao
 
+    companion object {
         val MIGRATION_1_3 = object : Migration(1, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -267,7 +270,26 @@ abstract class VaultNoteDatabase: RoomDatabase() {
             }
         }
 
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+            CREATE TABLE IF NOT EXISTS journal_photos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                journalId INTEGER NOT NULL,
+                filePath TEXT NOT NULL,
+                createdAt INTEGER NOT NULL,
+                FOREIGN KEY(journalId) REFERENCES journal_entries(id)
+                ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+                )
 
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_journal_photos_journalId ON journal_photos(journalId)"
+                )
+            }
+        }
 
 
     }

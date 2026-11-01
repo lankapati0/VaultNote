@@ -3,6 +3,7 @@ package com.lankeshwar.vaultnote.Utils
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import androidx.core.content.FileProvider
@@ -10,6 +11,7 @@ import java.io.File
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
@@ -21,7 +23,8 @@ object JournalPdfUtils {
         date: String,
         title: String,
         mood: String,
-        content: String
+        content: String,
+        photoPaths: List<String> = emptyList()
     ): ByteArray? {
 
         val pdfDocument = PdfDocument()
@@ -92,6 +95,38 @@ object JournalPdfUtils {
                 }
             }
 
+            fun drawPhoto(photoPath: String) {
+                val bitmap = BitmapFactory.decodeFile(photoPath) ?: return
+
+                val maxWidth = 515f
+                val maxHeight = 350f
+
+                val scale = minOf(
+                    maxWidth / bitmap.width,
+                    maxHeight / bitmap.height
+                )
+
+                val width = bitmap.width * scale
+                val height = bitmap.height * scale
+
+                if (y + height > 790f) {
+                    startNewPage()
+                }
+
+                val destination = RectF(
+                    40f,
+                    y,
+                    40f + width,
+                    y + height
+                )
+
+                canvas?.drawBitmap(bitmap, null, destination, paint)
+
+                y += height + 20f
+
+                bitmap.recycle()
+            }
+
             startNewPage()
 
             drawLine("Daily Journal", 24f)
@@ -108,6 +143,14 @@ object JournalPdfUtils {
                     y += 12f
                 } else {
                     drawParagraph(line)
+                }
+            }
+
+            if(photoPaths.isNotEmpty()){
+                y += 20f
+                drawLine("Attached Photos",18f)
+                photoPaths.forEach { photoPath ->
+                    drawPhoto(photoPath)
                 }
             }
 
