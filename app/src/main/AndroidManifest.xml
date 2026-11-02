@@ -23,7 +23,7 @@
             android:enabled="true"
             android:exported="false"/>
         
-        <receiver android:name=".widget.VaultNoteWidgetReceiver"
+<!--        <receiver android:name=".widget.VaultNoteWidgetReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
@@ -31,7 +31,7 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/vault_note_widget_info"/>
-        </receiver>
+        </receiver>-->
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -168,6 +168,7 @@ class NotesViewModel @Inject constructor(
     fun deleteNotes(note:Note){
         viewModelScope.launch {
             repository.moveToRecentlyDeleted(note.id)
+            VaultNoteWidget().updateAll(context)
         }
     }
 
@@ -194,6 +195,7 @@ class NotesViewModel @Inject constructor(
                     isReminderEnabled = note.isReminderEnabled
                 )
             )
+            VaultNoteWidget().updateAll(context)
             onComplete?.invoke()
         }
     }

@@ -38,7 +38,6 @@ class VaultNoteWidget: GlanceAppWidget() {
         context: Context,
         id: GlanceId
     ) {
-
         val noteDao = EntryPointAccessors.fromApplication(
             context.applicationContext,
             WidgetEntryPoint::class.java
@@ -53,9 +52,9 @@ class VaultNoteWidget: GlanceAppWidget() {
         }
 
         val pendingTasks = withContext(Dispatchers.IO){
-            taskDao.getAllTasks().first().filter { !it.isCompleted }.take(3)
+            taskDao.getAllTasks().first().filter { !it.isCompleted }.sortedByDescending { it.createdAt }.take(3)
         }
-
+        android.util.Log.d("VaultWidget", "Pending tasks: ${pendingTasks.map { "${it.id}:${it.isCompleted}" }}")
         val attachmentCounts = withContext(Dispatchers.IO){
             recentNotes.associate {note ->
                 note.id to attachmentDao.getAttachmentsForNote(note.id).first().size
