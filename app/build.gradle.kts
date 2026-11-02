@@ -55,7 +55,8 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
-
+    implementation(libs.androidx.glance)
+    implementation(libs.androidx.glance.appwidget)
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation(libs.hilt.android)
     implementation(libs.androidx.hilt.navigation.compose)

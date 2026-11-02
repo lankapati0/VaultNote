@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import com.lankeshwar.vaultnote.data.repository.NotesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,6 +22,7 @@ import com.lankeshwar.vaultnote.data.db.entity.NoteDraftEntity
 import com.lankeshwar.vaultnote.data.db.entity.NoteEntity
 import com.lankeshwar.vaultnote.data.storage.AttachmentFileManager
 import com.lankeshwar.vaultnote.data.storage.VoiceRecorder
+import com.lankeshwar.vaultnote.widget.VaultNoteWidget
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -157,6 +159,7 @@ class NotesViewModel @Inject constructor(
                     isPrivate = isPrivate
                 )
             )
+            VaultNoteWidget().updateAll(context)
             onNoteSaved?.invoke(noteId)
             onComplete?.invoke()
         }
@@ -400,8 +403,4 @@ class NotesViewModel @Inject constructor(
             repository.disableOneTimeReminder(noteId)
         }
     }
-
-
-
-
 }

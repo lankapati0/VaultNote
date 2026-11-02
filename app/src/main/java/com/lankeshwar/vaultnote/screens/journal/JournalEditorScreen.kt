@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -103,7 +104,7 @@ fun JournalEditorScreen(date: String, existingEntry: JournalEntity? = null,
     }
 
 
-    Column( modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column( modifier = Modifier.fillMaxSize().imePadding().padding(16.dp)) {
         Text(text = title,
             style = MaterialTheme.typography.titleMedium
         )

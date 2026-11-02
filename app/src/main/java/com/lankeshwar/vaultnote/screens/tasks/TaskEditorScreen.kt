@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -42,7 +43,7 @@ fun TaskEditorScreen(task: TaskEntity? = null,
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dueDate)
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp),
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp).imePadding(),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
 
 /*        TextButton(onClick = {onBack}) {Text("← Back") }*/

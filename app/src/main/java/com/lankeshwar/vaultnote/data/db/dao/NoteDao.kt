@@ -74,4 +74,13 @@ interface NoteDao {
 
     }
 
+    @Query("""
+    SELECT * FROM notes
+    WHERE isPrivate = 0
+    AND isDeleted = 0
+    ORDER BY id DESC
+    LIMIT 3
+""")
+    suspend fun getRecentNotesForWidget(): List<NoteEntity>
+
 }

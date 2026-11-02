@@ -57,6 +57,7 @@ import com.lankeshwar.vaultnote.data.db.entity.NoteDraftEntity
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -325,16 +326,14 @@ fun CreateNoteScreen(
         )
     }
 
-
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize().imePadding()
             .padding(20.dp)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Create Note", style = MaterialTheme.typography.headlineMedium
         )
-
 
         Text(
             text = "Reminder",

@@ -58,6 +58,7 @@ import com.lankeshwar.vaultnote.screens.tasks.TaskEditorScreen
 import com.lankeshwar.vaultnote.screens.tasks.TaskListScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
+import com.lankeshwar.vaultnote.viewmodels.TaskViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -68,8 +69,14 @@ import java.time.LocalDate
 fun MainScreen(selectTheme: AppTheme? = null,
                onThemeChange: (AppTheme) -> Unit = {},
                notificationNoteId:Int? = null,
-               onNotificationHandled:()-> Unit = {}) {
+               onNotificationHandled:()-> Unit = {},
+               widgetTaskId:Int? = null,
+               onWidgetTaskHandled:()->Unit = {},
+               openCreateNote: Boolean = false,
+               onCreateNoteHandled: () -> Unit = {}) {
     val notesViewModel: NotesViewModel = hiltViewModel()
+    val taskViewModel: TaskViewModel = hiltViewModel()
+    val tasks by taskViewModel.tasks.collectAsState()
     val navController = rememberNavController()
     val backstackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backstackEntry?.destination?.route
@@ -82,6 +89,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
     }
     var selectedTask by remember { mutableStateOf<TaskEntity?>(null) }
     val context = LocalContext.current
+    var widgetTaskId by remember { mutableStateOf<Int?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var selectedJournalEntry by remember {mutableStateOf<JournalEntity?>(null)}
@@ -110,7 +118,30 @@ fun MainScreen(selectTheme: AppTheme? = null,
                 onNotificationHandled()
             }
         }
+    }
 
+    LaunchedEffect(widgetTaskId,tasks) {
+        val taskId = widgetTaskId
+        if(taskId != null){
+            val targetTask = tasks.find { it.id == taskId }
+
+            if(targetTask!= null){
+                selectedTask = targetTask
+                navController.navigate(Routes.EDIT_TASK){
+                    launchSingleTop = true
+                }
+                onWidgetTaskHandled()
+            }
+        }
+    }
+
+    LaunchedEffect(openCreateNote) {
+        if (openCreateNote) {
+            navController.navigate(Routes.CREATE_NOTE) {
+                launchSingleTop = true
+            }
+            onCreateNoteHandled()
+        }
     }
 
     val shareNotes:()-> Unit = {

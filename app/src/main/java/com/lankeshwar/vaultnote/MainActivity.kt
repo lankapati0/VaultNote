@@ -26,23 +26,26 @@ import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.theme.ThemePreferences
 import com.lankeshwar.vaultnote.ui.theme.VaultNoteTheme
 import dagger.hilt.android.AndroidEntryPoint
-
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
-
     private val notificationNoteId = mutableIntStateOf(-1)
+    private val widgetTaskId = mutableIntStateOf(-1)
+    private val openCreateNote = mutableStateOf(false)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         notificationNoteId.intValue = intent.getIntExtra("noteId",-1)
+        widgetTaskId.intValue = intent.getIntExtra("taskId",-1)
+        openCreateNote.value = intent.getBooleanExtra("openCreateNote", false)
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         notificationNoteId.intValue = intent.getIntExtra("noteId",-1)
-
+        widgetTaskId.intValue = intent.getIntExtra("taskId",-1)
+        openCreateNote.value = intent.getBooleanExtra("openCreateNote", false)
         setContent {
             val context = LocalContext.current
 
@@ -79,6 +82,14 @@ class MainActivity : FragmentActivity() {
                     notificationNoteId = notificationNoteId.intValue.takeIf { it != -1 },
                     onNotificationHandled = {
                         notificationNoteId.intValue = -1
+                    },
+                    widgetTaskId = widgetTaskId.intValue.takeIf { it != -1 },
+                    onWidgetTaskHandled = {
+                        widgetTaskId.intValue = -1
+                    },
+                    openCreateNote = openCreateNote.value,
+                    onCreateNoteHandled = {
+                        openCreateNote.value = false
                     }
                 )
             }
