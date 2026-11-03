@@ -6,6 +6,7 @@ import java.security.SecureRandom
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import androidx.core.content.edit
+import java.security.MessageDigest
 
 object PinManager {
 
@@ -19,7 +20,8 @@ object PinManager {
     private const val LOCK_UNTIL_KEY = "pin_lock_until"
     private const val MAX_ATTEMPTS = 5
     private const val LOCK_DURATION_MS = 30_000L
-
+    private const val DECOY_SALT_KEY = "decoy_pin_salt"
+    private const val DECOY_HASH_KEY = "decoy_pin_hash"
 
     private fun preferences(context: Context) =
         context.getSharedPreferences(
@@ -29,6 +31,10 @@ object PinManager {
 
     fun hasPin(context: Context): Boolean {
         return preferences(context).contains(HASH_KEY)
+    }
+
+    fun hasDecoyPin(context: Context): Boolean {
+        return preferences(context).contains(DECOY_HASH_KEY)
     }
 
     fun remainingLockTime(context: Context):Long {
@@ -73,6 +79,22 @@ object PinManager {
             .apply()
     }
 
+    fun saveDecoyPin(context: Context,pin: String){
+        val salt = ByteArray(16)
+        SecureRandom().nextBytes(salt)
+        val hash = hashPin(pin,salt)
+        preferences(context).edit()
+            .putString(
+                DECOY_SALT_KEY,
+                Base64.encodeToString(salt, Base64.NO_WRAP)
+            )
+            .putString(
+                DECOY_HASH_KEY,
+                Base64.encodeToString(hash, Base64.NO_WRAP)
+            )
+            .apply()
+    }
+
     fun verifyPin(context: Context, pin: String): Boolean {
         val prefs = preferences(context)
 
@@ -87,6 +109,25 @@ object PinManager {
             savedHash,
             enteredHash
         )
+    }
+
+    fun isSameAsRealPin(context: Context,pin: String): Boolean{
+        return verifyPin(context,pin)
+    }
+
+    fun verifyDecoyPin(context: Context,pin: String): Boolean{
+        val prefs = preferences(context)
+
+        val saltString = prefs.getString(DECOY_SALT_KEY, null)
+            ?: return false
+
+        val hashString = prefs.getString(DECOY_HASH_KEY, null)
+            ?: return false
+        val salt = Base64.decode(saltString, Base64.NO_WRAP)
+        val savedHash = Base64.decode(hashString, Base64.NO_WRAP)
+        val enteredHash = hashPin(pin,salt)
+
+        return MessageDigest.isEqual(savedHash,enteredHash)
     }
 
     private fun hashPin(pin: String, salt: ByteArray): ByteArray {

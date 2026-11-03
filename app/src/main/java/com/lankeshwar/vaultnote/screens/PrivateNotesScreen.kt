@@ -6,8 +6,10 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -73,6 +75,10 @@ fun PrivateNotesScreen(
     var isUnlocked by remember {
         mutableStateOf(false)
     }
+
+    var isDecoyUnlocked by remember {
+        mutableStateOf(false)
+    }
     var isSettingPin by remember {
         mutableStateOf(!PinManager.hasPin(context))
     }
@@ -106,12 +112,15 @@ fun PrivateNotesScreen(
 
             if(event == Lifecycle.Event.ON_STOP){
                 if(AppLockPreferences.isAppLockEnabled(context)){
-                    isUnlocked = false
                     notesViewModel.lockPrivateNotes()
+                    isDecoyUnlocked = false
+                    isUnlocked = false
                     pin = ""
                     confirmPin = ""
+
                 }
             }
+
         }
         lifecycleOwner.lifecycle.addObserver (observer)
         onDispose {
@@ -192,8 +201,17 @@ fun PrivateNotesScreen(
 
                         PinManager.verifyPin(context, pin) -> {
                             PinManager.resetFailedAttempts(context)
+                            isDecoyUnlocked = false
                             isUnlocked = true
                             notesViewModel.unlockPrivateNotes()
+                            pin = ""
+                        }
+
+                        PinManager.verifyDecoyPin(context,pin) -> {
+                            PinManager.resetFailedAttempts(context)
+                            notesViewModel.lockPrivateNotes()
+                            isDecoyUnlocked = true
+                            isUnlocked = true
                             pin = ""
                         }
 
@@ -224,6 +242,7 @@ fun PrivateNotesScreen(
                     onClick = {
                         BiometricHelper.authenticate(activity,
                             onSucess = {
+                                isDecoyUnlocked = false
                                 isUnlocked = true
                                 notesViewModel.unlockPrivateNotes()
                                 pin = ""
@@ -239,6 +258,21 @@ fun PrivateNotesScreen(
         }
         return
     }
+
+    if(isDecoyUnlocked){
+        Column(modifier = Modifier.fillMaxSize().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center) {
+            Text(
+                text = "🔒 Private Notes",
+                style = MaterialTheme.typography.headlineMedium
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("No private notes yet.")
+        }
+        return
+    }
+
     Column(modifier = Modifier
         .fillMaxSize()
         .imePadding()
@@ -306,7 +340,5 @@ fun PrivateNotesScreen(
                 }
             }
         }
-
-
     }
 }
