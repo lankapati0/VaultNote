@@ -105,10 +105,12 @@ fun PrivateNotesScreen(
             }
 
             if(event == Lifecycle.Event.ON_STOP){
-                isUnlocked = false
-                notesViewModel.lockPrivateNotes()
-                pin = ""
-                confirmPin = ""
+                if(AppLockPreferences.isAppLockEnabled(context)){
+                    isUnlocked = false
+                    notesViewModel.lockPrivateNotes()
+                    pin = ""
+                    confirmPin = ""
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver (observer)
