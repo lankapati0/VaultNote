@@ -28,6 +28,13 @@ interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE isPrivate = 1 AND isDeleted = 0 ORDER BY id DESC")
     fun getPrivateNotes(): Flow<List<NoteEntity>>
+
+    @Query("SELECT isPrivate FROM notes WHERE id = :noteId LIMIT 1")
+    suspend fun isPrivateNote(noteId:Int): Boolean?
+
+    @Query("SELECT * FROM notes WHERE isPrivate = 1 ORDER BY id DESC")
+    suspend fun getAllPrivateNotesForMigration(): List<NoteEntity>
+
     @Query("""
     SELECT * FROM notes
     WHERE isPrivate = 0

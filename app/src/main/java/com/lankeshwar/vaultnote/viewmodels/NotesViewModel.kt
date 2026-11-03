@@ -13,6 +13,7 @@ import com.lankeshwar.vaultnote.data.repository.NotesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.lifecycle.viewModelScope
+import com.lankeshwar.vaultnote.Utils.PrivateAttachmentEncryptionManager
 import com.lankeshwar.vaultnote.Utils.ReminderScheduler
 import com.lankeshwar.vaultnote.data.Note
 import com.lankeshwar.vaultnote.data.repository.NoteAttachmentRepository
@@ -22,13 +23,14 @@ import com.lankeshwar.vaultnote.data.db.entity.NoteDraftEntity
 import com.lankeshwar.vaultnote.data.db.entity.NoteEntity
 import com.lankeshwar.vaultnote.data.storage.AttachmentFileManager
 import com.lankeshwar.vaultnote.data.storage.VoiceRecorder
+import com.lankeshwar.vaultnote.screens.private_note_screen.PrivateNoteSession
 import com.lankeshwar.vaultnote.widget.VaultNoteWidget
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -39,8 +41,10 @@ class NotesViewModel @Inject constructor(
     private val repository: NotesRepository,
     private val draftRepository: NoteDraftRepository,
     private val attachmentRepository: NoteAttachmentRepository,
+    private val privateNoteSession: PrivateNoteSession,
     @ApplicationContext private val context: Context
 ): ViewModel() {
+
     val welcomeMessage:String
         get() = repository.getWelcomeMessage()
     private val searchQueryFlow = MutableStateFlow("")
@@ -49,6 +53,21 @@ class NotesViewModel @Inject constructor(
     private val voiceRecorder = VoiceRecorder(context)
     var searchQuery by mutableStateOf("")
     private set
+
+    val isPrivateNoteUnlockd = privateNoteSession.isUnlocked
+
+    fun unlockPrivateNotes(){
+        privateNoteSession.unlock()
+        viewModelScope.launch {
+            repository.migrateExistingPrivateNote()
+            migrateExistingPrivateAttachments()
+        }
+    }
+
+    fun lockPrivateNotes(){
+        privateNoteSession.lock()
+    }
+
     private val notes = repository.getRegularNotes()
         .combine(searchQueryFlow){entities, query ->
             entities.map { entity ->
@@ -81,22 +100,27 @@ class NotesViewModel @Inject constructor(
 
     val recentlyDeletedFlow: StateFlow<List<Note>> =
         repository.getRecentlyDeletedNotes()
-            .map { entities ->
-                entities.map { entity ->
-                    Note(
-                        id = entity.id,
-                        title = entity.title,
-                        preview = entity.preview,
-                        formattedContent = entity.formattedContent,
-                        date = entity.date,
-                        isPrivate = entity.isPrivate,
-                        isPinned = entity.isPinned,
-                        isFavorite = entity.isFavorite,
-                        reminderTime =  entity.reminderTime,
-                        reminderRepeat = entity.reminderRepeat,
-                        isReminderEnabled = entity.isReminderEnabled
-                    )
-                }
+            .combine(privateNoteSession.isUnlocked) { entities, isUnlocked ->
+
+                entities
+                    .filter { entity ->
+                        !entity.isPrivate || isUnlocked
+                    }
+                    .map { entity ->
+                        Note(
+                            id = entity.id,
+                            title = entity.title,
+                            preview = entity.preview,
+                            formattedContent = entity.formattedContent,
+                            date = entity.date,
+                            isPrivate = entity.isPrivate,
+                            isPinned = entity.isPinned,
+                            isFavorite = entity.isFavorite,
+                            reminderTime = entity.reminderTime,
+                            reminderRepeat = entity.reminderRepeat,
+                            isReminderEnabled = entity.isReminderEnabled
+                        )
+                    }
             }
             .stateIn(
                 viewModelScope,
@@ -106,27 +130,32 @@ class NotesViewModel @Inject constructor(
 
     val privateNotesFlow: StateFlow<List<Note>> =
         repository.getPrivateNotes()
-            .map { entities ->
-                entities.map { entity ->
-                    Note(
-                        id = entity.id,
-                        title = entity.title,
-                        preview = entity.preview,
-                        formattedContent = entity.formattedContent,
-                        date = entity.date,
-                        isPrivate = entity.isPrivate,
-                        isFavorite = entity.isFavorite,
-                        isPinned = entity.isPinned,
-                        reminderTime =  entity.reminderTime,
-                        reminderRepeat = entity.reminderRepeat,
-                        isReminderEnabled = entity.isReminderEnabled
-                    )
-                }
+            .combine(searchQueryFlow) { entities, query ->
+                entities to query
             }
-            .combine(searchQueryFlow) { notes, query ->
-                notes.filter { note ->
-                    note.title.contains(query, ignoreCase = true) ||
-                            note.preview.contains(query, ignoreCase = true)
+            .combine(privateNoteSession.isUnlocked) { (entities, query), isUnlocked ->
+
+                if (!isUnlocked) {
+                    emptyList()
+                } else {
+                    entities.map { entity ->
+                        Note(
+                            id = entity.id,
+                            title = entity.title,
+                            preview = entity.preview,
+                            formattedContent = entity.formattedContent,
+                            date = entity.date,
+                            isPrivate = entity.isPrivate,
+                            isFavorite = entity.isFavorite,
+                            isPinned = entity.isPinned,
+                            reminderTime = entity.reminderTime,
+                            reminderRepeat = entity.reminderRepeat,
+                            isReminderEnabled = entity.isReminderEnabled
+                        )
+                    }.filter { note ->
+                        note.title.contains(query, ignoreCase = true) ||
+                                note.preview.contains(query, ignoreCase = true)
+                    }
                 }
             }
             .stateIn(
@@ -134,7 +163,6 @@ class NotesViewModel @Inject constructor(
                 SharingStarted.WhileSubscribed(5_000),
                 emptyList()
             )
-
 
 
     val notesFlow = notes
@@ -221,14 +249,47 @@ class NotesViewModel @Inject constructor(
     }
 
     fun restoreNote(note: Note){
+        if(note.isPrivate && !privateNoteSession.isUnlocked.value){
+            return
+        }
+
         viewModelScope.launch {
             repository.restoreNote(note.id)
         }
     }
 
-    fun permanentlyDeleteNote(note: Note){
+    fun permanentlyDeleteNote(note: Note) {
         viewModelScope.launch {
-            repository.permanentlyDeleteNote(note.id)
+            try {
+                val attachments =
+                    attachmentRepository.getAttachmentsForDeletion(note.id)
+
+                // Delete physical attachment files first.
+                for (attachment in attachments) {
+                    val deleted = attachmentFileManager.deleteAttachment(
+                        attachment.filePath
+                    )
+
+                    if (!deleted) {
+                        Log.e(
+                            "NoteDeletion",
+                            "Failed to delete attachment: ${attachment.filePath}"
+                        )
+                        return@launch
+                    }
+                }
+
+                // Delete attachment records from Room.
+                attachmentRepository.deleteAttachmentForNote(note.id)
+
+                // Finally, permanently delete the note.
+                repository.permanentlyDeleteNote(note.id)
+
+                VaultNoteWidget().updateAll(context)
+
+            } catch (e: Exception) {
+                Log.e("NoteDeletion", "Failed to permanently delete note", e)
+            }
         }
     }
 
@@ -263,50 +324,82 @@ class NotesViewModel @Inject constructor(
 
     fun saveImageAttachments(noteId: Long, imageUris: List<Uri>){
         viewModelScope.launch {
-            imageUris.forEach { uri ->
-                try {
-                    val fileName = getAttachmentFileManager(uri)
-                    val mimeType = context.contentResolver.getType(uri) ?: "image/*"
-                    val savedFile = attachmentFileManager.copyAttachment(uri= uri, originalFileName = fileName)
+            try {
+                val isPrivate = repository.isPrivateNote(noteId.toInt()) ?: throw IllegalStateException("Note not found")
 
-                    attachmentRepository.addAttachment(
-                        NoteAttachmentEntity(
-                            noteId = noteId.toInt(),
-                            fileName = fileName,
-                            fileType = mimeType,
-                            filePath = savedFile.absolutePath
+                imageUris.forEach { uri ->
+                    try {
+                        val fileName = getAttachmentFileManager(uri)
+                        val mimeType = context.contentResolver.getType(uri) ?: "image/*"
+                        val savedFile = if(isPrivate){
+                            attachmentFileManager.copyPrivateAttachment(uri=uri, originalFileName = fileName)
+                        } else {
+                            attachmentFileManager.copyAttachment(uri=uri, originalFileName = fileName)
+                        }
+                        attachmentRepository.addAttachment(
+                            NoteAttachmentEntity(
+                                noteId = noteId.toInt(),
+                                fileName = fileName,
+                                fileType = mimeType,
+                                filePath = savedFile.absolutePath
+                            )
                         )
-                    )
-
-                } catch (e: Exception){
-                    Log.e("NoteAttachments","Failed to save image attachment", e)
+                    }catch (e: Exception){
+                        Log.e("NoteAttachments", "Failed to save image attachment", e)
+                    }
                 }
+
+            }catch (e: Exception){
+                Log.e("NoteAttachments", "Unable to check note privacy", e)
             }
         }
     }
 
-    fun saveFileAttachments(noteId:Long, fileUris:List<Uri>){
+
+    fun saveFileAttachments(noteId: Long, fileUris: List<Uri>) {
         viewModelScope.launch {
-            fileUris.forEach { uri ->
-                try {
-                    val fileName = getAttachmentFileManager(uri)
-                    val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+            try {
+                val isPrivate = repository.isPrivateNote(noteId.toInt())
+                    ?: throw IllegalStateException("Note not found.")
 
-                    val savedFile = attachmentFileManager.copyAttachment(uri=uri, originalFileName = fileName)
+                fileUris.forEach { uri ->
+                    try {
+                        val fileName = getAttachmentFileManager(uri)
+                        val mimeType =
+                            context.contentResolver.getType(uri)
+                                ?: "application/octet-stream"
 
-                    attachmentRepository.addAttachment(
-                        NoteAttachmentEntity(
-                            noteId = noteId.toInt(),
-                            fileName = fileName,
-                            fileType = mimeType,
-                            filePath = savedFile.absolutePath
+                        val savedFile = if (isPrivate) {
+                            attachmentFileManager.copyPrivateAttachment(
+                                uri = uri,
+                                originalFileName = fileName
+                            )
+                        } else {
+                            attachmentFileManager.copyAttachment(
+                                uri = uri,
+                                originalFileName = fileName
+                            )
+                        }
+
+                        attachmentRepository.addAttachment(
+                            NoteAttachmentEntity(
+                                noteId = noteId.toInt(),
+                                fileName = fileName,
+                                fileType = mimeType,
+                                filePath = savedFile.absolutePath
+                            )
                         )
-                    )
-                }catch (e: Exception){
-                    Log.e("NoteAttachments",
-                        "Failed to save document attachment",
-                        e)
+
+                    } catch (e: Exception) {
+                        Log.e(
+                            "NoteAttachments",
+                            "Failed to save document attachment",
+                            e
+                        )
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("NoteAttachments", "Unable to check note privacy", e)
             }
         }
     }
@@ -333,13 +426,37 @@ class NotesViewModel @Inject constructor(
     fun stopVoiceRecording(noteId: Long){
         viewModelScope.launch {
             val recordedFile = voiceRecorder.stopRecording() ?: return@launch
-            val attachment = NoteAttachmentEntity(
-                noteId = noteId.toInt(),
-                fileName = recordedFile.name,
-                fileType = "audio/mp4",
-                filePath = recordedFile.absolutePath
-            )
-            attachmentRepository.addAttachment(attachment)
+
+            var encryptedFile: File? = null
+            try {
+                val isPrivate = repository.isPrivateNote(noteId.toInt())
+                    ?: throw IllegalStateException("Note note found")
+
+                if(isPrivate){
+                    encryptedFile = attachmentFileManager.encryptPrivateAttachmentFile(recordedFile)
+                }
+                val fileToSave = encryptedFile ?: recordedFile
+
+                val attachment = NoteAttachmentEntity(
+                    noteId = noteId.toInt(),
+                    fileName = recordedFile.name,
+                    fileType = "audio/mp4",
+                    filePath = fileToSave.absolutePath
+                )
+
+                attachmentRepository.addAttachment(attachment)
+                if(isPrivate){
+                    recordedFile.delete()
+                }
+            }catch (e: Exception){
+                encryptedFile?.delete()
+                Log.e(
+                    "NoteAttachments",
+                    "Failed to save voice recording",
+                    e)
+            }
+
+
         }
     }
 
@@ -351,17 +468,85 @@ class NotesViewModel @Inject constructor(
         voiceRecorder.cancelRecording()
     }
 
-    fun saveVoiceRecording(noteId:Long, recordedFile:File){
-        viewModelScope.launch {
-            val attachment = NoteAttachmentEntity(
-                noteId = noteId.toInt(),
-                fileName = recordedFile.name,
-                fileType = "audio/mp4",
-                filePath = recordedFile.absolutePath
-            )
-            attachmentRepository.addAttachment(attachment)
+    fun migrateExistingPrivateAttachments(){
+        viewModelScope.launch(Dispatchers.IO){
+            try {
+                val attachments = attachmentRepository.getAllPrivateNoteAttachments()
+
+                for(attachment in attachments){
+                    val originalFile = File(attachment.filePath)
+                    if(PrivateAttachmentEncryptionManager.isEncrypted(originalFile)){
+                        continue
+                    }
+                    if(!originalFile.exists()){
+                        Log.e("AttachmentMigration", "Attachment file not found: ${attachment.filePath}")
+                        continue
+                    }
+                    var encryptedFile: File? = null
+                    try {
+                        encryptedFile = attachmentFileManager.encryptPrivateAttachmentFile(originalFile)
+                        attachmentRepository.updateAttachmentFilePath(
+                            attachmentId = attachment.id,
+                            newFilePath = encryptedFile.absoluteFile
+                        )
+
+                        if(!attachmentFileManager.deleteAttachment(originalFile.absolutePath)){
+                            Log.e("AttachmentMigration", "Encrypted successfully, but could not delete plaintext file: ${originalFile.absolutePath}")
+                        }
+                    }catch (e: Exception){
+                        encryptedFile?.delete()
+                        Log.e("AttachmentMigration", "Failed to migrate attachment ${attachment.id}", e)
+                    }
+                }
+            }catch (e: Exception){
+                Log.e("AttachmentMigration","Unable to retrieve private attachments",e)
+            }
         }
     }
+
+
+    fun saveVoiceRecording(noteId: Long, recordedFile: File) {
+        viewModelScope.launch {
+            var encryptedFile: File? = null
+
+            try {
+                val isPrivate = repository.isPrivateNote(noteId.toInt())
+                    ?: throw IllegalStateException("Note not found.")
+
+                if (isPrivate) {
+                    encryptedFile =
+                        attachmentFileManager.encryptPrivateAttachmentFile(
+                            recordedFile
+                        )
+                }
+
+                val fileToSave = encryptedFile ?: recordedFile
+
+                attachmentRepository.addAttachment(
+                    NoteAttachmentEntity(
+                        noteId = noteId.toInt(),
+                        fileName = recordedFile.name,
+                        fileType = "audio/mp4",
+                        filePath = fileToSave.absolutePath
+                    )
+                )
+
+                if (isPrivate) {
+                    recordedFile.delete()
+                }
+
+            } catch (e: Exception) {
+                encryptedFile?.delete()
+
+                Log.e(
+                    "NoteAttachments",
+                    "Failed to save voice recording",
+                    e
+                )
+            }
+        }
+    }
+
 
     fun saveNoteReminder(noteId:Long, title:String, reminderTime: Long?,reminderRepeat: String,isEnabled: Boolean){
         val id = noteId.toInt()

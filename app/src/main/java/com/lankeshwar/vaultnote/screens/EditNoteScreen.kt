@@ -74,6 +74,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.ContentScale
 import androidx.core.content.FileProvider
@@ -82,6 +83,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.ContextCompat
 import com.lankeshwar.vaultnote.Utils.AudioPlayerUtils
 import com.lankeshwar.vaultnote.Utils.FileUtils
+import com.lankeshwar.vaultnote.Utils.PrivateAttachmentEncryptionManager
+import com.lankeshwar.vaultnote.data.storage.AttachmentFileManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -90,6 +95,7 @@ import java.util.Locale
 @Composable
 fun EditNoteScreen(
     noteId: Int,
+    isPrivate: Boolean,
     initialTitle: String,
     initialContent: String,
     initialFormattedContent: String,
@@ -107,7 +113,9 @@ fun EditNoteScreen(
     onCancelVoiceRecording: () -> Unit,
 ) {
     val context = LocalContext.current
-
+    val attachmentFileManager = remember(context){
+        AttachmentFileManager(context)
+    }
     var reminderTime by remember(noteId, initialReminderTime) {
         mutableStateOf(initialReminderTime)
     }
@@ -862,10 +870,37 @@ fun EditNoteScreen(
                 existingAttachments.forEach { attachment ->
                     when {
                         attachment.fileType.startsWith("image/") -> {
-                            val bitmap = remember(attachment.filePath) {
-                                runCatching {
-                                    BitmapFactory.decodeFile(attachment.filePath)
-                                }.getOrNull()
+                            val imageFile by produceState<File?>(
+                                initialValue = null,
+                                key1= attachment.filePath,
+                                key2 = isPrivate
+                            ) {
+                                value = withContext(Dispatchers.IO){
+                                    runCatching {
+                                        val originalFile = File(attachment.filePath)
+
+                                        if(isPrivate && PrivateAttachmentEncryptionManager.isEncrypted(originalFile)){
+                                            attachmentFileManager.createDecryptedTemporaryFile(attachment.filePath)
+                                        } else {
+                                            originalFile
+                                        }
+                                    }.getOrNull()
+                                }
+                            }
+
+                            val bitmap = remember(imageFile){
+                                imageFile?.let{ file ->
+                                    runCatching {
+                                        BitmapFactory.decodeFile(file.absolutePath)
+                                    }.getOrNull()
+                                }
+                            }
+                            DisposableEffect(imageFile) {
+                                onDispose {
+                                    if(isPrivate && imageFile != null && imageFile?.absolutePath != attachment.filePath){
+                                        imageFile?.delete()
+                                    }
+                                }
                             }
 
                             if (bitmap != null) {
@@ -888,7 +923,10 @@ fun EditNoteScreen(
                                     color = MaterialTheme.colorScheme.error
                                 )
                             }
+
                         }
+
+
 
                         attachment.fileType.startsWith("audio/") -> {
                             Row(

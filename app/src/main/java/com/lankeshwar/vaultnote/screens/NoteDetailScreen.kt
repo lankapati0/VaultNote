@@ -3,6 +3,7 @@ package com.lankeshwar.vaultnote.screens
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -14,9 +15,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -39,11 +42,15 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -51,9 +58,14 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lankeshwar.vaultnote.Utils.AudioPlayerUtils
+import com.lankeshwar.vaultnote.Utils.PrivateAttachmentEncryptionManager
 import com.lankeshwar.vaultnote.Utils.RichTextUtils
+import com.lankeshwar.vaultnote.data.storage.AttachmentFileManager
 import com.lankeshwar.vaultnote.viewmodels.NoteAttachmentViewModel
 import com.lankeshwar.vaultnote.viewmodels.TagViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @SuppressLint("QueryPermissionsNeeded")
@@ -64,12 +76,14 @@ fun NoteDetailScreen(
     content: String,
     formattedContent: String,
     date: String,
+    isPrivate:Boolean = false,
     onBack:() -> Unit,
     onShare: () -> Unit,
     onEdit: () -> Unit
 ){
     val tagViewModel: TagViewModel = hiltViewModel()
     val context = LocalContext.current
+    val attachmentFileManager = remember(context){ AttachmentFileManager(context) }
     val attachmentViewModel: NoteAttachmentViewModel = hiltViewModel()
     val assignedTags by tagViewModel.getTagsForNote(noteId).collectAsState(initial = emptyList())
     val allTags by tagViewModel.tags.collectAsState()
@@ -86,38 +100,79 @@ fun NoteDetailScreen(
     var isAudioPlaying by remember {
         mutableStateOf(false)
     }
+    var activeDecryptedAudioFile by remember { mutableStateOf<File?>(null) }
+
+    val coroutineScope = rememberCoroutineScope()
 
     fun stopAudioPlayback() {
         audioPlayer.stop { playing ->
             isAudioPlaying = playing
         }
+        activeDecryptedAudioFile?.delete()
+        activeDecryptedAudioFile = null
         playingFilePath = null
+        isAudioPlaying = false
     }
 
     fun playAudio(filePath: String) {
-        playingFilePath = filePath
+        coroutineScope.launch {
+            try {
+                stopAudioPlayback()
+                val playbackFile = withContext(Dispatchers.IO){
+                    val originalFile = File(filePath)
 
-        audioPlayer.play(
-            filePath = filePath,
-            onPlayingChanged = { playing ->
-                isAudioPlaying = playing
-                playingFilePath = if (playing) filePath else null
-            },
-            onError = {
+                    if(isPrivate && PrivateAttachmentEncryptionManager.isEncrypted(originalFile)){
+                        attachmentFileManager.createDecryptedTemporaryFile(filePath)
+                    } else {
+                        originalFile
+                    }
+                }
+
+                audioPlayer.play(
+                    filePath = playbackFile.absolutePath,
+                    onPlayingChanged = {playing ->
+                        isAudioPlaying = playing
+                        if(audioPlayer.currentFilePath != null){
+                            playingFilePath = filePath
+                        } else {
+                            playingFilePath = null
+                            activeDecryptedAudioFile?.delete()
+                            activeDecryptedAudioFile = null
+                        }
+                    },
+                    onError = {
+                        playingFilePath = null
+                        if(audioPlayer.currentFilePath == null){
+                            activeDecryptedAudioFile?.delete()
+                            activeDecryptedAudioFile = null
+                        }
+                        Toast.makeText(context,"Unable to play this recording", Toast.LENGTH_SHORT).show()
+                    }
+                )
+
+                activeDecryptedAudioFile = playbackFile.takeIf { it.absolutePath != filePath }
+                playingFilePath = filePath
+            }catch (e: Exception){
+                activeDecryptedAudioFile?.delete()
+                activeDecryptedAudioFile = null
                 playingFilePath = null
                 isAudioPlaying = false
+
                 Toast.makeText(
                     context,
-                    "Unable to play this recording",
+                    "Unable to open this recording",
                     Toast.LENGTH_SHORT
                 ).show()
             }
-        )
+        }
     }
+
+    val latestDecryptedAudioFile by rememberUpdatedState(activeDecryptedAudioFile)
 
     DisposableEffect (audioPlayer) {
         onDispose {
             audioPlayer.release()
+            latestDecryptedAudioFile?.delete()
         }
     }
 
@@ -132,32 +187,6 @@ fun NoteDetailScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-/*            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back"
-                )
-            }
-
-            Text(
-                text = "Note Details",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f)
-            )*/
-
-/*            IconButton(onClick = onEdit) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit Note"
-                )
-            }
-
-            IconButton(onClick = onShare) {
-                Icon(
-                    imageVector = Icons.Default.Share,
-                    contentDescription = "Share note"
-                )
-            }*/
         }
 
         Text(text=title, style = MaterialTheme.typography.headlineMedium)
@@ -180,24 +209,73 @@ fun NoteDetailScreen(
                 items(items=attachments.filter {
                     it.fileType.startsWith("image/")
                 }, key = {it.id}){ attachment ->
-                    val bitmap = remember(attachment.filePath){
-                        runCatching {
-                            BitmapFactory.decodeFile(attachment.filePath)
-                        }.getOrNull()
+                    val imageFile by produceState<File?>(
+                        initialValue = null,
+                        key1 = attachment.filePath,
+                        key2 = isPrivate
+                    ) {
+                        value = withContext(Dispatchers.IO) {
+                            runCatching {
+                                if (isPrivate &&
+                                    PrivateAttachmentEncryptionManager.isEncrypted(
+                                        File(attachment.filePath)
+                                    )
+                                ) {
+                                    attachmentFileManager.createDecryptedTemporaryFile(
+                                        attachment.filePath
+                                    )
+                                } else {
+                                    File(attachment.filePath)
+                                }
+                            }.onFailure {error ->
+                                Log.e(
+                                    "PrivateImage","Failed to load image: ${attachment.filePath}",error)
+                            }
+                                .getOrNull()
+                        }
                     }
 
-                    if(bitmap != null){
+                    val bitmap = remember(imageFile) {
+                        imageFile?.let { file ->
+                            Log.d(
+                                "PrivateImage",
+                                "File exists=${file.exists()}, size=${file.length()}, path=${file.absolutePath}"
+                            )
+                            runCatching {
+                                BitmapFactory.decodeFile(file.absolutePath)
+                            }.onFailure { error ->
+                                Log.e("PrivateImage", "Bitmap decoding failed", error)
+
+                            }.getOrNull().also { result ->
+                                Log.d(
+                                    "PrivateImage",
+                                    "Bitmap decoded successfully=${result != null}"
+                                )
+                            }
+                        }
+                    }
+                    if(bitmap!= null){
                         Image(
                             bitmap = bitmap.asImageBitmap(),
                             contentDescription = attachment.fileName,
-                            modifier = Modifier.height(120.dp),
-                            contentScale = ContentScale.Fit
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
                         )
                     } else {
                         Text(
                             text = "Unable to display ${attachment.fileName}",
                             color = MaterialTheme.colorScheme.error
                         )
+                    }
+
+                    DisposableEffect(imageFile) {
+                        onDispose {
+                            if (isPrivate && imageFile!= null && imageFile?.absolutePath != attachment.filePath) {
+                                imageFile?.delete()
+                            }
+                        }
                     }
                 }
             }
@@ -285,39 +363,61 @@ fun NoteDetailScreen(
                             modifier = Modifier.fillMaxWidth()
                                 .clickable{
 
-                                    try {
-                                        val file = File(attachment.filePath)
-                                        if (!file.exists()) {
-                                            Toast.makeText(
-                                                context,
-                                                "File not found",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                            return@clickable
-                                        }
-
-                                        val fileUri = FileProvider.getUriForFile(
-                                            context, "${context.packageName}.fileprovider", file
-                                        )
-
-                                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                                            setDataAndType(fileUri, "application/pdf")
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-
+                                    coroutineScope.launch {
                                         try {
-                                            context.startActivity(
-                                                Intent.createChooser(intent, "Open PDF with")
+                                            val originalFile = File(attachment.filePath)
+
+                                            if (!originalFile.exists()) {
+                                                Toast.makeText(
+                                                    context,
+                                                    "File not found",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                                return@launch
+                                            }
+
+                                            val fileToOpen = withContext(Dispatchers.IO) {
+                                                if (
+                                                    isPrivate &&
+                                                    PrivateAttachmentEncryptionManager.isEncrypted(originalFile)
+                                                ) {
+                                                    attachmentFileManager.createDecryptedTemporaryFile(
+                                                        attachment.filePath
+                                                    )
+                                                } else {
+                                                    originalFile
+                                                }
+                                            }
+
+                                            val fileUri = FileProvider.getUriForFile(
+                                                context,
+                                                "${context.packageName}.fileprovider",
+                                                fileToOpen
                                             )
+
+                                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                setDataAndType(fileUri, attachment.fileType)
+                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            }
+
+                                            context.startActivity(
+                                                Intent.createChooser(intent, "Open attachment with")
+                                            )
+
                                         } catch (e: android.content.ActivityNotFoundException) {
                                             Toast.makeText(
                                                 context,
-                                                "No PDF viewer can open this file",
-                                                Toast.LENGTH_LONG
+                                                "No app available to open this file",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+
+                                        } catch (e: Exception) {
+                                            Toast.makeText(
+                                                context,
+                                                "Unable to open this attachment",
+                                                Toast.LENGTH_SHORT
                                             ).show()
                                         }
-                                    }catch (e: Exception){
-                                        Toast.makeText(context, "No app available to open this file",Toast.LENGTH_SHORT).show()
                                     }
 
                                 }.padding(vertical = 8.dp),

@@ -11,6 +11,7 @@ import com.lankeshwar.vaultnote.data.db.VaultNoteDatabase
 import com.lankeshwar.vaultnote.data.db.dao.JournalDao
 import com.lankeshwar.vaultnote.data.db.dao.TaskDao
 import com.lankeshwar.vaultnote.data.model.JournalPhotoDao
+import com.lankeshwar.vaultnote.screens.private_note_screen.PrivateNoteSession
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -55,8 +56,13 @@ object DatabaseModule {
         return database.tagDao()
     }
 
-    fun provideNotesRepository(noteDao: NoteDao): NotesRepository{
-        return NotesRepository(noteDao)
+    @Provides
+    @Singleton
+    fun provideNotesRepository(noteDao: NoteDao,privateNoteSession: PrivateNoteSession): NotesRepository{
+        return NotesRepository(
+            noteDao,
+            privateNoteSession
+        )
     }
 
     @Provides

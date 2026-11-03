@@ -468,6 +468,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                 if (note != null) {
                     EditNoteScreen(
                         noteId = note.id,
+                        isPrivate = note.isPrivate,
                         initialTitle = note.title,
                         initialContent = note.preview,
                         initialFormattedContent = note.formattedContent,
@@ -555,6 +556,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         content = note.preview,
                         formattedContent = note.formattedContent,
                         date = note.date,
+                        isPrivate = note.isPrivate,
                         onBack = {
                             navController.popBackStack()
                         },

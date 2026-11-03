@@ -3,6 +3,7 @@ package com.lankeshwar.vaultnote.data.storage
 import android.content.Context
 import android.net.Uri
 import android.webkit.MimeTypeMap
+import com.lankeshwar.vaultnote.Utils.PrivateAttachmentEncryptionManager
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
@@ -48,6 +49,62 @@ class AttachmentFileManager(context: Context){
             return false
         }
         return !target.exists() || target.delete()
+    }
+
+    fun copyPrivateAttachment(uri: Uri,originalFileName: String): File{
+        val extension = originalFileName.substringAfterLast('.',"").filter { it.isLetterOrDigit() }.take(5)
+
+        val filename = UUID.randomUUID().toString() + if(extension.isNotBlank()) ".$extension" else ""
+        val destination = File(attachmentsDirectory,filename)
+
+        val temporaryPlainFile = File.createTempFile("private_attachment",".tmp",appContext.cacheDir)
+
+        try {
+            val inputStream = appContext.contentResolver.openInputStream(uri)
+                ?: throw IllegalStateException("Cannot open selected file.")
+            inputStream.use { input ->
+                temporaryPlainFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            PrivateAttachmentEncryptionManager.encryptFile(temporaryPlainFile,destination)
+
+            return destination
+        } catch (e: Exception){
+            destination.delete()
+            throw e
+        } finally {
+            temporaryPlainFile.delete()
+        }
+    }
+
+    fun createDecryptedTemporaryFile(encryptedFilePath:String):File{
+        val encryptedFile = File(encryptedFilePath)
+
+        val temporaryDirectory = File(appContext.cacheDir,"decrypted_attachments").apply { mkdirs() }
+        val extension = encryptedFile.name.substringAfterLast('.',"")
+            .takeIf { it.isNotBlank() } ?: "tmp"
+        val temporaryFile = File(temporaryDirectory,"decrypted_${UUID.randomUUID()}.$extension")
+        try {
+            PrivateAttachmentEncryptionManager.decryptFile(encryptedFile,temporaryFile)
+            return temporaryFile
+        }catch (e: Exception){
+            temporaryFile.delete()
+            throw e
+        }
+    }
+
+    fun encryptPrivateAttachmentFile(sourceFile:File): File{
+        val destination = File(attachmentsDirectory,"${UUID.randomUUID()}.enc")
+
+        try {
+            PrivateAttachmentEncryptionManager.encryptFile(sourceFile,destination)
+            return destination
+        }catch (e: Exception){
+            destination.delete()
+            throw e
+        }
     }
 
 }

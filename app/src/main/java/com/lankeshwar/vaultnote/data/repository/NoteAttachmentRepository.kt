@@ -3,6 +3,7 @@ package com.lankeshwar.vaultnote.data.repository
 import com.lankeshwar.vaultnote.data.db.dao.NoteAttachmentDao
 import com.lankeshwar.vaultnote.data.db.entity.NoteAttachmentEntity
 import kotlinx.coroutines.flow.Flow
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,6 +20,11 @@ class NoteAttachmentRepository @Inject constructor(private val noteAttachmentDao
         return noteAttachmentDao.getAttachmentsForNote(noteId )
     }
 
+    suspend fun getAttachmentsForDeletion(noteId: Int): List<NoteAttachmentEntity> {
+        return noteAttachmentDao.getAttachmentsForDeletion(noteId)
+    }
+
+    // ToDo: Need to use below functions when everything ready
     suspend fun deleteAttachment(noteId:Int){
         noteAttachmentDao.deleteAttachment(noteId)
     }
@@ -27,5 +33,10 @@ class NoteAttachmentRepository @Inject constructor(private val noteAttachmentDao
         noteAttachmentDao.deleteAttachmentsForNote(noteId)
     }
 
-
+    suspend fun getAllPrivateNoteAttachments(): List<NoteAttachmentEntity>{
+        return noteAttachmentDao.getAllPrivateNoteAttachments()
+    }
+    suspend fun updateAttachmentFilePath(attachmentId: Int, newFilePath: File){
+        return noteAttachmentDao.updateAttachmentFilePath(attachmentId, newFilePath.absolutePath)
+    }
 }

@@ -44,7 +44,9 @@ import com.lankeshwar.vaultnote.Utils.AppLockPreferences
 import com.lankeshwar.vaultnote.Utils.BiometricHelper
 import com.lankeshwar.vaultnote.Utils.BiometricPreferences
 import com.lankeshwar.vaultnote.Utils.PinManager
+import com.lankeshwar.vaultnote.Utils.PrivateNoteEncryptionManager
 import com.lankeshwar.vaultnote.data.Note
+import com.lankeshwar.vaultnote.screens.private_note_screen.PrivateNoteSession
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -63,6 +65,8 @@ fun PrivateNotesScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val activity = context as? FragmentActivity
+
+    val isSessionUnlocked by notesViewModel.isPrivateNoteUnlockd.collectAsStateWithLifecycle()
 
     var pin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
@@ -102,6 +106,7 @@ fun PrivateNotesScreen(
 
             if(event == Lifecycle.Event.ON_STOP){
                 isUnlocked = false
+                notesViewModel.lockPrivateNotes()
                 pin = ""
                 confirmPin = ""
             }
@@ -109,6 +114,10 @@ fun PrivateNotesScreen(
         lifecycleOwner.lifecycle.addObserver (observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            isUnlocked = false
+            notesViewModel.lockPrivateNotes()
+            pin = ""
+            confirmPin = ""
         }
     }
 
@@ -174,6 +183,7 @@ fun PrivateNotesScreen(
                             PinManager.resetFailedAttempts(context)
                             isSettingPin = false
                             isUnlocked = true
+                            notesViewModel.unlockPrivateNotes()
                             pin = ""
                             confirmPin = ""
                         }
@@ -181,6 +191,7 @@ fun PrivateNotesScreen(
                         PinManager.verifyPin(context, pin) -> {
                             PinManager.resetFailedAttempts(context)
                             isUnlocked = true
+                            notesViewModel.unlockPrivateNotes()
                             pin = ""
                         }
 
@@ -203,12 +214,16 @@ fun PrivateNotesScreen(
             ) {
                 Text(if(isSettingPin) "Save PIN" else "Unlock")
             }
+
+
+
             if(!isSettingPin && fingerprintEnabled && activity != null && BiometricHelper.canAuthenticate(activity)){
                 Button(
                     onClick = {
                         BiometricHelper.authenticate(activity,
                             onSucess = {
                                 isUnlocked = true
+                                notesViewModel.unlockPrivateNotes()
                                 pin = ""
                             },
                             onError = { error ->
