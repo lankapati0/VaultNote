@@ -1,7 +1,9 @@
 package com.lankeshwar.vaultnote.screens
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Build
+import android.view.WindowManager
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -23,7 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -98,6 +102,23 @@ fun MainScreen(selectTheme: AppTheme? = null,
         mutableStateOf<JournalTemplate?>(null)
     }
     var openedTempleteFromEditor by remember{mutableStateOf(false)}
+
+    val activity = context as? Activity
+    val isSecureScreen = currentRoute == Routes.PRIVATE || (currentRoute == Routes.NOTE_DETAIL && selectedNote?.isPrivate == true)
+
+    DisposableEffect(activity) {
+        onDispose {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    SideEffect {
+        if(isSecureScreen){
+            activity?.window?.setFlags(WindowManager.LayoutParams.FLAG_SECURE,WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
 
     LaunchedEffect(notificationNoteId,notes) {
         if (notificationNoteId != null) {
