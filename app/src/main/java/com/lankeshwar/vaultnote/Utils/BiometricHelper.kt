@@ -19,6 +19,8 @@ object BiometricHelper {
     }
 
     fun authenticate(activity: FragmentActivity,
+                     title:String = "Unlock Private Notes",
+                     subtitle: String = "Verify your identity to continue",
                      onSucess: () -> Unit,
                      onError: (String) -> Unit){
         val executer = ContextCompat.getMainExecutor(activity)
@@ -41,8 +43,8 @@ object BiometricHelper {
             })
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Private Notes")
-            .setSubtitle("Verify your identity to continue")
+            .setTitle(title)
+            .setSubtitle(subtitle)
             .setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG
             )

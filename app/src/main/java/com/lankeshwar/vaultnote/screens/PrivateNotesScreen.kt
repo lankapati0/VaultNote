@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -27,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +54,8 @@ import com.lankeshwar.vaultnote.screens.private_note_screen.PrivateNoteSession
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @RequiresApi(Build.VERSION_CODES.R)
 @Composable
@@ -64,6 +68,8 @@ fun PrivateNotesScreen(
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isVerifyingPin by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val activity = context as? FragmentActivity
@@ -126,6 +132,7 @@ fun PrivateNotesScreen(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             isUnlocked = false
+            isDecoyUnlocked = false
             notesViewModel.lockPrivateNotes()
             pin = ""
             confirmPin = ""
@@ -199,42 +206,75 @@ fun PrivateNotesScreen(
                             confirmPin = ""
                         }
 
-                        PinManager.verifyPin(context, pin) -> {
-                            PinManager.resetFailedAttempts(context)
-                            isDecoyUnlocked = false
-                            isUnlocked = true
-                            notesViewModel.unlockPrivateNotes()
-                            pin = ""
-                        }
-
-                        PinManager.verifyDecoyPin(context,pin) -> {
-                            PinManager.resetFailedAttempts(context)
-                            notesViewModel.lockPrivateNotes()
-                            isDecoyUnlocked = true
-                            isUnlocked = true
-                            pin = ""
-                        }
-
                         else -> {
-                            val attempts = PinManager.recordFailedAttempt(context)
-                            lockRemainingMs = PinManager.remainingLockTime(context)
-
-                            pinError = if (lockRemainingMs > 0L){
-                                "Too many attempts. Try again in 30 seconds"
-                            } else {
-                                "Incorrect PIN. Failed attempts: $attempts of 5"
-                            }
+                            val enteredPin = pin
                             pin = ""
+                            pinError = ""
+                            isVerifyingPin = true
+                            coroutineScope.launch {
+                                val result = withContext(Dispatchers.Default) {
+                                    val isRealPin = PinManager.verifyPin(context, enteredPin)
+
+                                    val isDecoyPin = if (!isRealPin) {
+                                        PinManager.verifyDecoyPin(context, enteredPin)
+                                    } else {
+                                        false
+                                    }
+                                    Pair(isRealPin, isDecoyPin)
+                                }
+                                isVerifyingPin = false
+
+                                when {
+                                    result.first -> {
+                                        PinManager.resetFailedAttempts(context)
+                                        isDecoyUnlocked = false
+                                        isUnlocked = true
+                                        notesViewModel.unlockPrivateNotes()
+                                    }
+
+                                    result.second -> {
+                                        PinManager.resetFailedAttempts(context)
+                                        notesViewModel.lockPrivateNotes()
+                                        isDecoyUnlocked = true
+                                        isUnlocked = true
+                                    }
+
+                                    else -> {
+                                        val attempts = PinManager.recordFailedAttempt(context)
+                                        lockRemainingMs = PinManager.remainingLockTime(context)
+
+                                        pinError = if (lockRemainingMs > 0L) {
+                                            "Too many attempts. Try again in 30 seconds"
+                                        } else {
+                                            "Incorrect PIN. Failed attempts: $attempts of 5"
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-
                 },
-                enabled = isSettingPin || lockRemainingMs <= 0L
-
-            ) {
-                Text(if(isSettingPin) "Save PIN" else "Unlock")
+                enabled = !isVerifyingPin && (isSettingPin || lockRemainingMs <= 0L)
+            ){
+                Text(
+                    when {
+                        isVerifyingPin -> "Checking..."
+                        isSettingPin -> "Save PIN"
+                        else -> "Unlock"
+                    }
+                )
             }
 
+            if(isVerifyingPin){
+                Spacer(modifier = Modifier.height(16.dp))
+                LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Checking your PIN securely...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
 
             if(!isSettingPin && fingerprintEnabled && activity != null && BiometricHelper.canAuthenticate(activity)){

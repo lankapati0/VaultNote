@@ -55,9 +55,17 @@ class ReminderReceiver : BroadcastReceiver() {
         val notification = NotificationCompat.Builder(context,channelId)
             .setSmallIcon(R.drawable.ic_dialog_info)
             .setContentTitle("VaultNote reminder")
-            .setContentText(title)
+            .setContentText("You have a VaultNote reminder.")
             .setContentIntent(contentPendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(
+                NotificationCompat.Builder(context,channelId)
+                    .setSmallIcon(R.drawable.ic_dialog_info)
+                    .setContentTitle("VaultNote")
+                    .setContentText("You have a reminder.")
+                    .build()
+            )
             .setAutoCancel(true)
             .build()
 

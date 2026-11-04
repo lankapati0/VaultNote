@@ -16,17 +16,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.fragment.app.FragmentActivity
+import com.lankeshwar.vaultnote.Utils.BiometricHelper
+import com.lankeshwar.vaultnote.Utils.BiometricPreferences
 import com.lankeshwar.vaultnote.Utils.PinManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ChangePinScreen(onBack:()-> Unit){
     val context = LocalContext.current
+    val activity = context as? FragmentActivity
+    var isResettingPin by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    var isSavingPin by remember { mutableStateOf(false) }
     var currentPin by remember { mutableStateOf("") }
     var newPin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
@@ -40,22 +51,28 @@ fun ChangePinScreen(onBack:()-> Unit){
             Text("← Back")
         }
 
-        Text("Private Notes PIN",
-            style =MaterialTheme.typography.headlineMedium)
+        Text(if (isResettingPin) "Reset Private Notes PIN" else "Private Notes PIN",
+            style = MaterialTheme.typography.headlineMedium)
 
-        Text("Enter your current PIN, then choose a new one.")
+        Text(if (isResettingPin)
+            "Enter your new PIN and confirm it."
+        else
+            "Enter your current PIN, then choose a new one.")
 
-        OutlinedTextField(
-            value = currentPin,
-            onValueChange = {
-                if(it.length <=6 && it.all(Char::isDigit)) currentPin = it
-            },
-            label = {Text("Current PIN")},
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
-        )
+        if(!isResettingPin){
+            OutlinedTextField(
+                value = currentPin,
+                onValueChange = {
+                    if(it.length <=6 && it.all(Char::isDigit)) currentPin = it
+                },
+                label = {Text("Current PIN")},
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+            )
+        }
+
 
         OutlinedTextField(
             value = newPin,
@@ -85,61 +102,112 @@ fun ChangePinScreen(onBack:()-> Unit){
             Text(message)
         }
 
+        if(activity != null && BiometricPreferences.isFingerprintEnabled(context) &&
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R &&
+            BiometricHelper.canAuthenticate(activity)){
+            TextButton(
+                onClick = {
+                    BiometricHelper.authenticate(activity=activity, title = "Reset Pin","Verify your fingerprint to create a new PIN",
+                        onSucess = {
+                            isResettingPin = true
+                            currentPin = ""
+                            newPin = ""
+                            confirmPin = ""
+                            message = ""
+                            showAlert = false
+                        },
+                        onError = { error ->
+                            message = error
+                            isPinChangeSuccessful = false
+                        })
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {Text("Forgot PIN?") }
+        }
+
         Button(onClick = {
-            when{
-                currentPin.isBlank() || newPin.isBlank() || confirmPin.isBlank() -> {
-                    message = "Please fill in all fields."
-                    isPinChangeSuccessful = false
-                }
+            val validationError = when {
+                !isResettingPin && currentPin.isBlank() -> "Please enter your current PIN."
 
-                currentPin.length != 6 -> {
-                    message = "Your current PIN must contain 6 digits."
-                    isPinChangeSuccessful = false
-                }
-                newPin.length != 6 -> {
-                    message = "Your new PIN must contain 6 digits."
-                    isPinChangeSuccessful = false
-                }
+                !isResettingPin && currentPin.length != 6 ->
+                    "Current PIN must be 6 digits."
 
-                newPin != confirmPin -> {
-                    message = "The new PINs does not match."
-                    isPinChangeSuccessful = false
-                }
+                newPin.length != 6 ->
+                    "New PIN must be 6 digits."
 
-                !PinManager.verifyPin(context,currentPin) -> {
-                    message = "Current PIN is incorrect."
-                    isPinChangeSuccessful = false
-                }
-                else -> {
-                    PinManager.savePin(context,newPin)
-                    PinManager.resetFailedAttempts(context)
-                    currentPin = ""
-                    newPin = ""
-                    confirmPin = ""
-                    message = "Current PIN verified."
-                    isPinChangeSuccessful = true
+                confirmPin.isBlank() ->
+                    "Please confirm your new PIN."
+
+                newPin != confirmPin ->
+                    "New PINs do not match."
+
+                else -> null
+            }
+
+            if(validationError != null){
+                message = validationError
+                isPinChangeSuccessful = false
+                showAlert = true
+            } else {
+                isSavingPin = true
+                coroutineScope.launch {
+                    val isCurrentPinValid = if(isResettingPin){true} else {
+                        withContext(Dispatchers.Default){
+                            PinManager.verifyPin(context,currentPin)
+                        }
+                    }
+
+                    if(!isCurrentPinValid){
+                        message = "Current PIN is incorrect."
+                        isPinChangeSuccessful = false
+                        showAlert = true
+                    } else {
+                        withContext(Dispatchers.Default) {
+                            PinManager.savePin(context, newPin)
+                        }
+
+                        PinManager.resetFailedAttempts(context)
+
+                        currentPin = ""
+                        newPin = ""
+                        confirmPin = ""
+
+                        message = if (isResettingPin) {
+                            "Your PIN has been reset successfully."
+                        } else {
+                            "Your PIN has been changed successfully."
+                        }
+
+                        isPinChangeSuccessful = true
+                        isResettingPin = false
+                        showAlert = true
+                    }
+                    isSavingPin = false
                 }
             }
-            showAlert = true
         },
+            enabled = !isSavingPin,
             modifier = Modifier.fillMaxWidth()) {
-            Text("Change PIN")
+            Text(when {
+                isSavingPin -> "Saving..."
+                isResettingPin -> "Reset PIN"
+                else -> "Change PIN"
+            })
         }
     }
-    if(showAlert){
+
+
+
+    if (showAlert) {
         AlertDialog(
             onDismissRequest = {
                 showAlert = false
-                if(!isPinChangeSuccessful){
-                    onBack()
-                }
             },
             title = {
-                if(isPinChangeSuccessful){
-                    Text("Pin Updated")
-                } else {
-                    "Error"
-                }
+                Text(
+                    if (isPinChangeSuccessful) "PIN Updated"
+                    else "Unable to Update PIN"
+                )
             },
             text = {
                 Text(message)
@@ -148,12 +216,16 @@ fun ChangePinScreen(onBack:()-> Unit){
                 TextButton(
                     onClick = {
                         showAlert = false
-                        if(isPinChangeSuccessful){
+
+                        if (isPinChangeSuccessful) {
                             onBack()
                         }
                     }
-                ) {Text("Ok") }
+                ) {
+                    Text("OK")
+                }
             }
         )
     }
+
 }
