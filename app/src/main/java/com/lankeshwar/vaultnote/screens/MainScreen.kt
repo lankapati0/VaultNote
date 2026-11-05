@@ -50,6 +50,7 @@ import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
 import com.lankeshwar.vaultnote.data.model.JournalTemplate
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppInfoScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppLockScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.BackupRestoreScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.ChangePinScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.FingerprintUnlockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.PrivacySecurityScreen
@@ -652,10 +653,17 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     },
                     onManageTagsClick = {
                         navController.navigate(Routes.TAG_MANAGEMENT)
+                    },
+                    onBackupClick = {
+                        navController.navigate(Routes.BACKUP_RESTORE)
                     }
                 )
-
             }
+
+            composable(Routes.BACKUP_RESTORE){
+                BackupRestoreScreen()
+            }
+
 
             composable(Routes.PRIVACY_SECURITY) {
                 PrivacySecurityScreen(

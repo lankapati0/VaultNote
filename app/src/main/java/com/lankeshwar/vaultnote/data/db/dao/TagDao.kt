@@ -39,4 +39,8 @@ interface TagDao {
                 "ORDER BY tags.name ASC"
     )
     fun getTagsForNote(noteId:Int):Flow<List<TagEntity>>
+
+    @Query("SELECT * FROM note_tag_cross_ref")
+    suspend fun getAllNoteTagCrossRefs(): List<NoteTagCrossRef>
+
 }

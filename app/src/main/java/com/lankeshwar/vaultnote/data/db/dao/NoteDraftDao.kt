@@ -18,4 +18,6 @@ interface NoteDraftDao {
     @Query("DELETE FROM note_drafts WHERE draftId = :draftId")
     suspend fun deleteDraft(draftId: String)
 
+    @Query("SELECT * FROM note_drafts ORDER BY updatedAt DESC")
+    suspend fun getAllDrafts(): List<NoteDraftEntity>
 }

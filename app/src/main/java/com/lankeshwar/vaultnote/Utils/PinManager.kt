@@ -118,7 +118,7 @@ object PinManager {
             if(iteration < CURRENT_ITERATIONS){
                 val newSalt = ByteArray(16)
                 SecureRandom().nextBytes(newSalt)
-                val newHash = hashPin(pin,salt,CURRENT_ITERATIONS)
+                val newHash = hashPin(pin,newSalt,CURRENT_ITERATIONS)
 
                 prefs.edit {
                     putString(SALT_KEY, Base64.encodeToString(newSalt, Base64.NO_WRAP))

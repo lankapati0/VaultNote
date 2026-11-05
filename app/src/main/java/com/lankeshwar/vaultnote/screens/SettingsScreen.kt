@@ -33,7 +33,8 @@ fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
                    onPrivacySecurityClick: ()-> Unit,
                    onAboutClick:()-> Unit,
                    onRecentlyDeletedClick: () -> Unit,
-                   onManageTagsClick:()-> Unit) {
+                   onManageTagsClick:()-> Unit,
+                   onBackupClick:()-> Unit) {
 
     var showAppearanceDialog by remember {
         mutableStateOf(false)
@@ -96,6 +97,20 @@ fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
             subtitle = "",
             icon = "",
             onClick = onManageTagsClick
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = "Data & Backup",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+        SettingsItem(
+            title = "Backup & Restore",
+            subtitle = "Create and manage your VaultNote backups",
+            icon = "💾",
+            onClick = onBackupClick
         )
     }
 

@@ -20,4 +20,6 @@ object Routes {
     const val JOURNAL = "journal"
     const val JOURNAL_EDITOR = "journal_editor"
     const val JOURNAL_TEMPLATES = "journal_templates"
+    const val BACKUP_RESTORE = "backup_restore"
+
 }

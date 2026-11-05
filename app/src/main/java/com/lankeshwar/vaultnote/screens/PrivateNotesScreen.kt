@@ -32,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -70,6 +71,7 @@ fun PrivateNotesScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var isVerifyingPin by remember { mutableStateOf(false) }
+    var verificationMessage by remember { mutableStateOf("") }
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val activity = context as? FragmentActivity
@@ -197,13 +199,24 @@ fun PrivateNotesScreen(
                         }
 
                         isSettingPin -> {
-                            PinManager.savePin(context, pin)
-                            PinManager.resetFailedAttempts(context)
-                            isSettingPin = false
-                            isUnlocked = true
-                            notesViewModel.unlockPrivateNotes()
-                            pin = ""
-                            confirmPin = ""
+                            isVerifyingPin = true
+                            verificationMessage = "Creating your secure PIN..."
+
+                            coroutineScope.launch {
+                                withContext(Dispatchers.Default){
+                                    PinManager.savePin(context, pin)
+                                }
+                                PinManager.resetFailedAttempts(context)
+                                isSettingPin = false
+                                isUnlocked = true
+                                notesViewModel.unlockPrivateNotes()
+                                pin = ""
+                                confirmPin = ""
+                                isVerifyingPin = false
+                                verificationMessage = ""
+                            }
+
+
                         }
 
                         else -> {
@@ -212,17 +225,28 @@ fun PrivateNotesScreen(
                             pinError = ""
                             isVerifyingPin = true
                             coroutineScope.launch {
-                                val result = withContext(Dispatchers.Default) {
-                                    val isRealPin = PinManager.verifyPin(context, enteredPin)
+                                verificationMessage = "Checking your real PIN..."
 
-                                    val isDecoyPin = if (!isRealPin) {
-                                        PinManager.verifyDecoyPin(context, enteredPin)
-                                    } else {
-                                        false
-                                    }
-                                    Pair(isRealPin, isDecoyPin)
+                                verificationMessage = "Checking your real PIN..."
+
+                                val isRealPin = withContext(Dispatchers.Default) {
+                                    PinManager.verifyPin(context, enteredPin)
                                 }
+
+                                val isDecoyPin = if (!isRealPin) {
+                                    verificationMessage = "Checking your decoy PIN..."
+
+                                    withContext(Dispatchers.Default) {
+                                        PinManager.verifyDecoyPin(context, enteredPin)
+                                    }
+                                } else {
+                                    false
+                                }
+
+                                val result = Pair(isRealPin, isDecoyPin)
+
                                 isVerifyingPin = false
+                                verificationMessage = ""
 
                                 when {
                                     result.first -> {
@@ -267,10 +291,11 @@ fun PrivateNotesScreen(
 
             if(isVerifyingPin){
                 Spacer(modifier = Modifier.height(16.dp))
-                LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
+                LinearProgressIndicator(modifier=Modifier.fillMaxWidth().height(10.dp),strokeCap = StrokeCap.Round)
+
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Checking your PIN securely...",
+                    text = verificationMessage,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

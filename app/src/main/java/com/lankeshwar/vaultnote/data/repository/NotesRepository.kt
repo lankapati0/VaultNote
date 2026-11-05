@@ -162,8 +162,6 @@ class NotesRepository @Inject constructor(
             } else {
                 PrivateNoteEncryptionManager.encrypt(note.formattedContent)
             },
-
         )
-
     }
 }

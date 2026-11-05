@@ -62,9 +62,17 @@ class NotesViewModel @Inject constructor(
             repository.migrateExistingPrivateNote()
             migrateExistingPrivateAttachments()
         }
+        android.util.Log.d(
+            "VaultNoteBackup",
+            "NotesViewModel unlocked: ${privateNoteSession.isUnlocked.value}"
+        )
     }
 
     fun lockPrivateNotes(){
+        android.util.Log.d(
+            "VaultNoteBackup",
+            "Private notes LOCK requested"
+        )
         privateNoteSession.lock()
     }
 
