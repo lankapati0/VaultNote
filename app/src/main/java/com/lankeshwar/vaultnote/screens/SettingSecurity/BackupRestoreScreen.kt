@@ -1,7 +1,9 @@
 package com.lankeshwar.vaultnote.screens.SettingSecurity
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -9,19 +11,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -32,7 +39,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lankeshwar.vaultnote.screens.SettingsItem
 import com.lankeshwar.vaultnote.viewmodels.BackupViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun BackupRestoreScreen(
@@ -51,9 +64,24 @@ fun BackupRestoreScreen(
     val passwordMatch = password.isNotEmpty() && password == confirmPassword
     val isPasswordValid = password.length >= 6 && passwordMatch
     var showPinDialog by remember { mutableStateOf(false) }
+
+    var isRestorePinFlow by remember { mutableStateOf(false) }
+    var showRestoreConfirmDialog by remember { mutableStateOf(false) }
+
     var backupPin by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf("") }
     val isAuthenticating by viewModel.isAuthenticating.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var restorePassword by remember { mutableStateOf("") }
+    var showRestorePassword by remember { mutableStateOf(false) }
+    var selectedRestoreFile by remember { mutableStateOf<File?>(null) }
+    var isPreparingRestore by remember { mutableStateOf(false) }
+
+    val restoreMessage by viewModel.isRestoringMessage.collectAsState()
+    val backupPreview by viewModel.backupPreview.collectAsState()
+    val isRestoringBackup by viewModel.isRestoringBackup.collectAsState()
 
     val createDocumentLauncher =
         rememberLauncherForActivityResult(contract = ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -67,6 +95,41 @@ fun BackupRestoreScreen(
             }
         }
 
+    val openBackupLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) {uri: Uri? ->
+        if(uri != null){
+            selectedRestoreFile?.delete()
+            viewModel.cancelRestorePreparation()
+            isPreparingRestore = true
+            selectedRestoreFile = null
+            restorePassword = ""
+
+            scope.launch {
+                try {
+                    val backupFile = withContext(Dispatchers.IO) {
+                        val file = File(
+                            context.cacheDir,
+                            "VaultNote_Restore_${System.currentTimeMillis()}.vnb"
+                        )
+
+                        context.contentResolver
+                            .openInputStream(uri)
+                            ?.use { input ->
+                                file.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            } ?: throw IllegalStateException("Unable to open the selected backup.")
+                        file
+                    }
+                    selectedRestoreFile = backupFile
+                }catch (e: Exception){
+                    viewModel.clearRestoreMessage(e.message ?: "Unable to read the selected backup.")
+                } finally {
+                    isPreparingRestore = false
+                }
+            }
+        }
+    }
+
     val openBackupPicker: () -> Unit = {
         pendingPassword = password.toCharArray()
         password = ""
@@ -74,10 +137,19 @@ fun BackupRestoreScreen(
         createDocumentLauncher.launch("VaultNote_Backup_${System.currentTimeMillis()}.vnb")
     }
 
+    LaunchedEffect(restoreMessage,isRestoringBackup) {
+        if(!isRestoringBackup && restoreMessage == "Backup restored successfully."){
+            selectedRestoreFile = null
+            restorePassword = ""
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp),
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState()),
+
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
@@ -187,11 +259,113 @@ fun BackupRestoreScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
+        Divider()
+        Text(text = "Restore Backup", style = MaterialTheme.typography.titleLarge)
         Text(
-            text = "Restore functionality will be added separately.",
-            style = MaterialTheme.typography.bodySmall,
+            text = "Select an existing VaultNote backup and enter its password to preview its contents.",
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Button(onClick = {
+            openBackupLauncher.launch(arrayOf("*/*"))
+        }, enabled = !isPreparingRestore && !isRestoringBackup,
+            modifier = Modifier.fillMaxWidth()) {
+            Text(
+                if (isPreparingRestore) {
+                    "Loading backup file..."
+                } else {
+                    "Select Backup File"
+                }
+            )
+        }
+
+        selectedRestoreFile?.let { file ->
+            Text(
+                text = "Selected: ${file.name}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            OutlinedTextField(value = restorePassword,
+                onValueChange = {restorePassword = it},
+                label = { Text("Backup Password") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = if(showRestorePassword){
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                    },
+                trailingIcon = {
+                    TextButton(
+                        onClick = {
+                            showRestorePassword = !showRestorePassword
+                        }
+                    ) {
+                        Text(if (showRestorePassword) "Hide" else "Show")
+                    }
+                },
+                enabled = !isRestoringBackup
+            )
+
+            Button(onClick = {
+                viewModel.previewRestoreBackup(backupFile = file, password = restorePassword.toCharArray())
+                restorePassword = ""
+            },
+                enabled = restorePassword.isNotEmpty() && !isRestoringBackup && backupPreview == null,
+                modifier = Modifier.fillMaxWidth()
+
+            ) {Text("Verify Backup") }
+
+            restoreMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = if(backupPreview != null){
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            if(isRestoringBackup){
+                CircularProgressIndicator()
+                Text("Restoring your VaultNote data...")
+            }
+
+            backupPreview?.let { preview ->
+                Text(
+                    text = "Backup Details",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text("Notes: ${preview.noteCount}")
+                Text("Private notes: ${preview.privateNoteCount}")
+                Text("Attachments: ${preview.attachmentCount}")
+                Text("Tags: ${preview.tagCount}")
+                Text("Drafts: ${preview.draftCount}")
+                Text("Tasks: ${preview.taskCount}")
+                Text("Journal entries: ${preview.journalEntryCount}")
+                Text("Journal photos: ${preview.journalPhotoCount}")
+
+                Text(
+                    text= "Created: ${SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+                        .format(Date(preview.createdAt))}"
+                )
+
+                Button(onClick = {
+                    if(viewModel.requiresPinAuthentication()){
+                        isRestorePinFlow = true
+                        pinError = ""
+                        backupPin = ""
+                        showPinDialog = true
+                    } else {
+                        showRestoreConfirmDialog = true
+                    }
+                },
+                    enabled = !isRestoringBackup,
+                    modifier = Modifier.fillMaxWidth()) {Text("Restore Backup") }
+            }
+        }
+
     }
 
     if (showPinDialog) {
@@ -201,17 +375,32 @@ fun BackupRestoreScreen(
                     showPinDialog = false
                     pinError = ""
                     backupPin = ""
+
+                    if(isRestorePinFlow){
+                        isRestorePinFlow = false
+                        viewModel.cancelRestorePreparation()
+                        selectedRestoreFile = null
+                    }
                 }
             },
             title = {
-                Text("Verify your PIN")
+                if(isRestorePinFlow){
+                    Text("Verify PIN to restore")
+                } else {
+                    Text("Verify your PIN")
+                }
             },
             text = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        "Enter your real VaultNote PIN to include private notes in this backup."
+                        if(isRestorePinFlow){
+                            "Enter your real VaultNote PIN to restore private notes and attachments."
+                        } else {
+                            "Enter your real VaultNote PIN to include private notes in this backup."
+                        }
+
                     )
                     OutlinedTextField(
                         value = backupPin,
@@ -257,7 +446,13 @@ fun BackupRestoreScreen(
                                 backupPin = ""
                                 pinError = ""
 
-                                openBackupPicker()
+                                if(isRestorePinFlow){
+                                    isRestorePinFlow = false
+                                    showRestoreConfirmDialog = true
+                                } else {
+                                    openBackupPicker()
+                                }
+
                             } else {
                                 pinError = message ?: "PIN verification failed."
                             }
@@ -274,6 +469,50 @@ fun BackupRestoreScreen(
                         showPinDialog = false
                         backupPin = ""
                         pinError = ""
+                        if(isRestorePinFlow){
+                            isRestorePinFlow = false
+                            viewModel.cancelRestorePreparation()
+                            selectedRestoreFile = null
+                        }
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if(showRestoreConfirmDialog){
+        AlertDialog(
+            onDismissRequest = {
+                showRestoreConfirmDialog = false
+                viewModel.cancelRestorePreparation()
+                selectedRestoreFile = null
+            },
+            title = {
+                Text("Confirm Backup Restoration")
+            },
+            text = {
+                Text(
+                    "Restoring this backup will add its notes, attachments, tags, tasks and journal entries to your existing VaultNote data. Continue?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRestoreConfirmDialog = false
+                        viewModel.restoreConfirmedBackup()
+                    }
+                ) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showRestoreConfirmDialog = false
+                        viewModel.cancelRestorePreparation()
+                        selectedRestoreFile = null
                     }
                 ) {
                     Text("Cancel")

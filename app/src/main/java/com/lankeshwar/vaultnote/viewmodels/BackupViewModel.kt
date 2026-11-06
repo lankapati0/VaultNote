@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lankeshwar.vaultnote.Utils.BackupManager
 import com.lankeshwar.vaultnote.Utils.PinManager
+import com.lankeshwar.vaultnote.data.repository.backup.BackupPreview
+import com.lankeshwar.vaultnote.data.repository.backup.BackupRestoreRepository
 import com.lankeshwar.vaultnote.screens.private_note_screen.PrivateNoteSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,11 +19,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.InputStream
+import java.security.MessageDigest
 import javax.inject.Inject
 
 @HiltViewModel
 class BackupViewModel @Inject constructor(
     private val backupManager: BackupManager,
+    private val backupRestoreRepository: BackupRestoreRepository,
     private val privateNoteSession: PrivateNoteSession,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -39,8 +44,18 @@ class BackupViewModel @Inject constructor(
     // Keeps private-note access active while the file picker is open
     // and while the backup is being created.
     private var backupSessionLease: AutoCloseable? = null
-
+    private var pendingRestorePassword: CharArray? = null
+    private var pendingRestoreFile:File? = null
     private var authenticationJob: Job? = null
+
+    private val _isRestoringBackup = MutableStateFlow(false)
+    val isRestoringBackup: StateFlow<Boolean> = _isRestoringBackup.asStateFlow()
+
+    private val _isRestoringMessage = MutableStateFlow<String?>(null)
+    val isRestoringMessage: StateFlow<String?> = _isRestoringMessage.asStateFlow()
+
+    private val _backupPreview = MutableStateFlow<BackupPreview?>(null)
+    val backupPreview: StateFlow<BackupPreview?> = _backupPreview.asStateFlow()
 
     /**
      * Checks whether the user has configured a real PIN.
@@ -58,7 +73,7 @@ class BackupViewModel @Inject constructor(
         enteredPin: String,
         onResult: (Boolean, String?) -> Unit
     ) {
-        if (_isAuthenticating.value || _isCreatingBackup.value) {
+        if (_isAuthenticating.value || _isCreatingBackup.value || _isRestoringBackup.value) {
             return
         }
 
@@ -168,6 +183,24 @@ class BackupViewModel @Inject constructor(
         backupSessionLease = null
     }
 
+    fun cancelRestorePreparation(){
+        pendingRestorePassword?.fill('\u0000')
+        pendingRestorePassword = null
+
+        pendingRestoreFile?.delete()
+        pendingRestoreFile = null
+
+        _backupPreview.value = null
+        _isRestoringMessage.value = null
+
+        // Lock only if this operation acquired a session lease.
+        backupSessionLease?.let { lease ->
+            privateNoteSession.lock()
+            lease.close()
+            backupSessionLease = null
+        }
+    }
+
     fun createBackup(destinationUri: Uri, password: CharArray) {
 
         if (_isCreatingBackup.value) {
@@ -218,8 +251,12 @@ class BackupViewModel @Inject constructor(
                     check(expectedSize > 0L) {
                         "Backup generation produced an empty file."
                     }
+                    // Step 2: Calculate hash of the original encrypted backup.
+                    val originalHash = backupFile.inputStream().buffered().use { input ->
+                        calculateSha256(input)
+                    }
 
-                    // Step 2: Copy to the selected location.
+                    // Step 3: Copy to the selected location.
                     val outputStream =
                         context.contentResolver.openOutputStream(
                             destinationUri,
@@ -237,6 +274,14 @@ class BackupViewModel @Inject constructor(
                     check(copiedBytes == expectedSize) {
                         "Backup copy incomplete. Expected $expectedSize bytes, copied $copiedBytes bytes."
                     }
+
+                    val savedHash = context.contentResolver.openInputStream(destinationUri)?.buffered()?.use {
+                        calculateSha256(it)
+                    } ?: throw IllegalStateException("Unable to read the saved backup for verification.")
+
+                    check(originalHash.contentEquals(savedHash)) {
+                        "Backup integrity verification failed. The saved file does not match the original."
+                    }
                 }
                 android.util.Log.d(
                     "VaultNoteBackup",
@@ -244,7 +289,6 @@ class BackupViewModel @Inject constructor(
                 )
                 _backupMessage.value =
                     "Backup created successfully. Saved $copiedBytes bytes."
-
             } catch (e: Exception) {
 
                 android.util.Log.e(
@@ -252,10 +296,8 @@ class BackupViewModel @Inject constructor(
                     "Backup creation failed",
                     e
                 )
-
                 _backupMessage.value =
                     e.message ?: "Failed to create backup."
-
             } finally {
 
                 temporaryFile?.delete()
@@ -272,8 +314,122 @@ class BackupViewModel @Inject constructor(
         }
     }
 
+    fun previewRestoreBackup(
+        backupFile: File,
+        password: CharArray
+    ) {
+        if (_isRestoringBackup.value) {
+            password.fill('\u0000')
+            return
+        }
+
+        pendingRestorePassword?.fill('\u0000')
+        pendingRestorePassword = null
+        pendingRestoreFile = null
+
+        val savedPassword = password.copyOf()
+
+        viewModelScope.launch {
+            _isRestoringMessage.value = null
+            _backupPreview.value = null
+
+            var previewSuccessful = false
+
+            try {
+                val preview = withContext(Dispatchers.IO) {
+                    backupRestoreRepository.previewBackup(
+                        backupFile = backupFile,
+                        password = password
+                    )
+                }
+
+                pendingRestorePassword = savedPassword
+                pendingRestoreFile = backupFile
+
+                _backupPreview.value = preview
+                _isRestoringMessage.value = "Backup verified successfully."
+
+                previewSuccessful = true
+
+            } catch (e: Exception) {
+                android.util.Log.e(
+                    "VaultNoteBackup",
+                    "Backup preview failed",
+                    e
+                )
+
+                _isRestoringMessage.value =
+                    e.message ?: "Unable to read this backup. Check the password and file."
+
+            } finally {
+                password.fill('\u0000')
+
+                if (!previewSuccessful) {
+                    savedPassword.fill('\u0000')
+                }
+            }
+        }
+    }
+
+    fun restoreConfirmedBackup(){
+        if(_isRestoringBackup.value) return
+
+        val backupFile = pendingRestoreFile
+        val restorePassword = pendingRestorePassword
+
+        if(backupFile == null || restorePassword == null){
+            _isRestoringMessage.value = "Please select and verify a backup first."
+            return
+        }
+        // Require real PIN authentication when a PIN is configured.
+        if (requiresPinAuthentication() && backupSessionLease == null) {
+            _isRestoringMessage.value = "Verify your real PIN before restoring."
+            return
+        }
+
+        viewModelScope.launch {
+            _isRestoringBackup.value = true
+            _isRestoringMessage.value = "Restoring your backup..."
+
+            try {
+                withContext(Dispatchers.IO){
+                    backupRestoreRepository.restoreBackup(backupFile = backupFile, password = restorePassword)
+                }
+                _isRestoringMessage.value = "Backup restored successfully."
+
+                _backupPreview.value = null
+            }catch (e: Exception){
+                android.util.Log.e(
+                    "VaultNoteBackup",
+                    "Backup restoration failed",
+                    e
+                )
+
+                _isRestoringMessage.value =
+                    e.message ?: "Failed to restore backup."
+            } finally {
+                restorePassword.fill('\u0000')
+                backupFile.delete()
+                pendingRestorePassword = null
+                pendingRestoreFile = null
+
+                // Lock private-note access and release the session lease.
+                privateNoteSession.lock()
+                backupSessionLease?.close()
+                backupSessionLease = null
+
+                _isRestoringBackup.value = false
+            }
+        }
+
+    }
+
     fun clearMessage() {
         _backupMessage.value = null
+    }
+
+    fun clearRestoreMessage(message: String? = null){
+        _isRestoringMessage.value = message
     }
 
     override fun onCleared() {
@@ -281,7 +437,22 @@ class BackupViewModel @Inject constructor(
 
         backupSessionLease?.close()
         backupSessionLease = null
-
+        pendingRestorePassword?.fill('\u0000')
+        pendingRestorePassword = null
+        pendingRestoreFile?.delete()
+        pendingRestoreFile = null
         super.onCleared()
+    }
+
+    private fun calculateSha256(input: InputStream): ByteArray{
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(64*1024)
+
+        while(true){
+            val count = input.read(buffer)
+            if(count == -1)break
+            digest.update(buffer,0,count)
+        }
+        return digest.digest()
     }
 }

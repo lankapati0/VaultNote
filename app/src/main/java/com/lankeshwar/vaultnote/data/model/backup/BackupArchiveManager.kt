@@ -1,6 +1,7 @@
 package com.lankeshwar.vaultnote.data.model.backup
 
 import android.content.Context
+import android.util.Log
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.File
@@ -48,6 +49,17 @@ object BackupArchiveManager{
             "Backup manifest is empty."
         }
 
+        android.util.Log.d(
+            "VaultNoteBackup",
+            "Manifest entry name: [$MANIFEST_ENTRY]"
+        )
+
+        files.keys.forEach { name ->
+            android.util.Log.d(
+                "VaultNoteBackup",
+                "Backup file entry: [$name]"
+            )
+        }
         require(files.keys.none { it == MANIFEST_ENTRY }) {
             "Attachment entry conflicts with the backup manifest."
         }
@@ -85,6 +97,21 @@ object BackupArchiveManager{
                     zip.closeEntry()
                 }
             }
+
+            val zipEntries=  mutableSetOf<String>()
+            ZipInputStream(BufferedInputStream(FileInputStream(temporaryZip))).use { testZip ->
+                while(true){
+                    val entry = testZip.nextEntry ?: break
+
+                    android.util.Log.d("VaultNoteBackup", "TEMP ZIP ENTRY: [${entry.name}]")
+                    if (!zipEntries.add(entry.name)) {
+                        android.util.Log.e("VaultNoteBackup", "DUPLICATE IN TEMP ZIP: ${entry.name}")
+                    }
+                    testZip.closeEntry()
+                }
+            }
+
+
 
             // Step B: Verify the ZIP file.
             check(temporaryZip.exists() && temporaryZip.length() > 0L) {
@@ -158,6 +185,7 @@ object BackupArchiveManager{
             var totalExtractedBytes = 0L
 
             val extractedFiles = mutableMapOf<String, File>()
+            val seenEntries = mutableSetOf<String>()
 
             ZipInputStream(
                 BufferedInputStream(FileInputStream(decryptedZip))
@@ -193,10 +221,13 @@ object BackupArchiveManager{
                     }
 
                     check(
-                        !extractedFiles.containsKey(entryName) ||
-                                entryName == MANIFEST_ENTRY
+                        seenEntries.add(entryName)
                     ) {
-                        "Duplicate backup entry detected."
+                        android.util.Log.e(
+                            "VaultNoteBackup",
+                            "DUPLICATE ZIP ENTRY: $entryName"
+                        )
+                        "Duplicate backup entry detected: $entryName"
                     }
 
                     outputFile.parentFile?.let { parent ->

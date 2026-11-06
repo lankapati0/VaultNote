@@ -1,4 +1,4 @@
-package com.lankeshwar.vaultnote.data.repository
+package com.lankeshwar.vaultnote.data.repository.backup
 
 import com.lankeshwar.vaultnote.Utils.PrivateAttachmentEncryptionManager
 import com.lankeshwar.vaultnote.Utils.PrivateNoteEncryptionManager
@@ -14,15 +14,14 @@ import com.lankeshwar.vaultnote.data.model.backup.BackupTask
 import com.lankeshwar.vaultnote.data.model.backup.VaultNoteBackup
 import com.lankeshwar.vaultnote.screens.private_note_screen.PrivateNoteSession
 import kotlinx.coroutines.flow.first
-import javax.inject.Singleton
 
 
 import android.content.Context
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
-import kotlinx.coroutines.flow.first
 
 class BackupDataRepository @Inject constructor(
     private val database: VaultNoteDatabase,
@@ -324,7 +323,7 @@ class BackupDataRepository @Inject constructor(
 
             // Release the session lease because no result was returned.
             sessionLease?.close()
-            android.util.Log.d(
+            Log.d(
                 "VaultNoteBackup",
                 "Backup repository unlocked: ${privateNoteSession.isUnlocked.value}"
             )

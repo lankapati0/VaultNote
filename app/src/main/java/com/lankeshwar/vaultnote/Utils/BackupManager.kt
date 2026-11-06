@@ -3,7 +3,7 @@ package com.lankeshwar.vaultnote.Utils
 import android.content.Context
 import com.lankeshwar.vaultnote.data.model.backup.BackupArchiveManager
 import com.lankeshwar.vaultnote.data.model.backup.BackupJsonManager
-import com.lankeshwar.vaultnote.data.repository.BackupDataRepository
+import com.lankeshwar.vaultnote.data.repository.backup.BackupDataRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

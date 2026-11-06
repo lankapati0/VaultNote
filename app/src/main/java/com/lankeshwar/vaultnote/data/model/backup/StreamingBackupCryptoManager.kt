@@ -12,6 +12,7 @@ import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 import java.security.GeneralSecurityException
 import java.security.SecureRandom
+import java.util.zip.ZipInputStream
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
@@ -256,7 +257,22 @@ object StreamingBackupCryptoManager{
                     // Authentication is verified here.
                     output.write(cipher.doFinal())
                     output.flush()
+               }
+            }
+
+            val decryptedEntries = mutableSetOf<String>()
+            ZipInputStream(BufferedInputStream(FileInputStream(temporaryFile))).use { testZip ->
+                while(true){
+                    val entry = testZip.nextEntry ?: break
+                    android.util.Log.d("VaultNoteBackup", "DECRYPTED TEMP ENTRY: [${entry.name}]")
+
+                    if(!decryptedEntries.add(entry.name)){
+                        android.util.Log.d("VaultNoteBackup", "DUPLICATE IN DECRYPTED TEMP ZIP: [${entry.name}]")
+                    }
+                    testZip.closeEntry()
                 }
+
+
             }
 
             check(temporaryFile.renameTo(destination)) {
