@@ -41,6 +41,10 @@ object BackupArchiveManager{
         destination: File,
         password: CharArray
     ) {
+        android.util.Log.e(
+            "VaultNoteBackup",
+            "CREATE BACKUP FUNCTION STARTED"
+        )
         require(!destination.exists()) {
             "Backup file already exists."
         }
@@ -49,17 +53,7 @@ object BackupArchiveManager{
             "Backup manifest is empty."
         }
 
-        android.util.Log.d(
-            "VaultNoteBackup",
-            "Manifest entry name: [$MANIFEST_ENTRY]"
-        )
 
-        files.keys.forEach { name ->
-            android.util.Log.d(
-                "VaultNoteBackup",
-                "Backup file entry: [$name]"
-            )
-        }
         require(files.keys.none { it == MANIFEST_ENTRY }) {
             "Attachment entry conflicts with the backup manifest."
         }
@@ -88,7 +82,12 @@ object BackupArchiveManager{
                         "Backup source file is missing: $entryName"
                     }
 
-                    zip.putNextEntry(ZipEntry(entryName))
+                    val originalSize = sourceFile.length()
+                    val zipEntry = ZipEntry(entryName).apply {
+                        method = ZipEntry.DEFLATED
+                    }
+                    zip.putNextEntry(zipEntry)
+
 
                     sourceFile.inputStream().buffered().use { input ->
                         input.copyTo(zip, 64 * 1024)
@@ -99,14 +98,11 @@ object BackupArchiveManager{
             }
 
             val zipEntries=  mutableSetOf<String>()
+
             ZipInputStream(BufferedInputStream(FileInputStream(temporaryZip))).use { testZip ->
                 while(true){
                     val entry = testZip.nextEntry ?: break
 
-                    android.util.Log.d("VaultNoteBackup", "TEMP ZIP ENTRY: [${entry.name}]")
-                    if (!zipEntries.add(entry.name)) {
-                        android.util.Log.e("VaultNoteBackup", "DUPLICATE IN TEMP ZIP: ${entry.name}")
-                    }
                     testZip.closeEntry()
                 }
             }
@@ -119,6 +115,16 @@ object BackupArchiveManager{
             }
 
             val zipSize = temporaryZip.length()
+
+            java.util.zip.ZipFile(temporaryZip).use {zipFile ->
+                val entries = zipFile.entries()
+                while (entries.hasMoreElements()){
+                    val entry = entries.nextElement()
+
+                    android.util.Log.d("VaultNoteBackup", "ZIP RESULT: ${entry.name} | " + "Original: ${entry.size} bytes | " + "Compressed: ${entry.compressedSize} bytes")
+                }
+            }
+            android.util.Log.d("VaultNoteBackup", "TOTAL ZIP SIZE: ${zipSize / (1024 * 1024)} MB")
 
             // Step C: Encrypt the ZIP file.
             FileInputStream(temporaryZip).use { input ->

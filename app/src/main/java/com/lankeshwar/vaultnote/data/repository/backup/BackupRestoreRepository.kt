@@ -140,22 +140,70 @@ class BackupRestoreRepository @Inject constructor(
         }
     }
 
-    private suspend fun restoreNotes(backupNotes:List<BackupNote>): Map<Int, Int> {
-        val noteIdMapping = mutableMapOf<Int,Int>()
-        for (backupNote in backupNotes) {
-            // Backup contains readable note content.
-            // Private notes must be encrypted again using
-            // this device's existing encryption manager.
-            val restoredTitle = if(backupNote.isPrivate){
-                PrivateNoteEncryptionManager.encrypt(backupNote.title)
-            } else { backupNote.title}
-            val restoredPreview = if(backupNote.isPrivate){
-                PrivateNoteEncryptionManager.encrypt(backupNote.preview)
-            } else { backupNote.preview}
 
-            val restoredContent = if(backupNote.isPrivate){
-                PrivateNoteEncryptionManager.encrypt(backupNote.formattedContent)
-            } else { backupNote.formattedContent}
+    private suspend fun restoreNotes(
+        backupNotes: List<BackupNote>
+    ): Map<Int, Int> {
+        val noteIdMapping = mutableMapOf<Int, Int>()
+        val existingNotes = database.noteDao()
+            .getAllNotes()
+            .first()
+            .toMutableList()
+
+        fun readableValue(value: String, isPrivate: Boolean): String {
+            return if (
+                isPrivate &&
+                PrivateNoteEncryptionManager.isEncrypted(value)
+            ) {
+                PrivateNoteEncryptionManager.decrypt(value)
+            } else {
+                value
+            }
+        }
+
+        for (backupNote in backupNotes) {
+
+            // First, match using the original database ID.
+            // This works even if the note was edited after backup.
+            val existingNote = existingNotes.find {
+                it.id == backupNote.id && it.isPrivate == backupNote.isPrivate
+            } ?: existingNotes.find { existing ->
+
+                // Fallback for backups restored with different IDs.
+                existing.isPrivate == backupNote.isPrivate &&
+                        existing.date == backupNote.date &&
+                        readableValue(existing.title, existing.isPrivate) ==
+                        backupNote.title &&
+                        readableValue(
+                            existing.formattedContent,
+                            existing.isPrivate
+                        ) == backupNote.formattedContent
+            }
+
+            if (existingNote != null) {
+                noteIdMapping[backupNote.id] = existingNote.id
+                continue
+            }
+
+            val restoredTitle = if (backupNote.isPrivate) {
+                PrivateNoteEncryptionManager.encrypt(backupNote.title)
+            } else {
+                backupNote.title
+            }
+
+            val restoredPreview = if (backupNote.isPrivate) {
+                PrivateNoteEncryptionManager.encrypt(backupNote.preview)
+            } else {
+                backupNote.preview
+            }
+
+            val restoredContent = if (backupNote.isPrivate) {
+                PrivateNoteEncryptionManager.encrypt(
+                    backupNote.formattedContent
+                )
+            } else {
+                backupNote.formattedContent
+            }
 
             val newNote = NoteEntity(
                 id = 0,
@@ -172,11 +220,17 @@ class BackupRestoreRepository @Inject constructor(
                 isReminderEnabled = backupNote.isReminderEnabled
             )
 
-            val newId = database.noteDao().insertNote(newNote)
-            noteIdMapping[backupNote.id] = newId.toInt()
+            val newId = database.noteDao()
+                .insertNote(newNote)
+                .toInt()
+
+            noteIdMapping[backupNote.id] = newId
+            existingNotes.add(newNote.copy(id = newId))
         }
+
         return noteIdMapping
     }
+
 
     private suspend fun restoreAttachments(
         backupAttachments: List<BackupAttachment>,
@@ -187,9 +241,30 @@ class BackupRestoreRepository @Inject constructor(
     ){
         val attachmentDirectory = File(context.filesDir, "attachments").apply { if(!exists()) mkdirs()}
 
-        val privateNoteIds = backupNotes.filter { it.isPrivate }.map { it.id }.toSet()
+        val restoreNotesById = database.noteDao().getAllNotes().first().associateBy { it.id }
+        val privateNoteIds = backupNotes.mapNotNull { backupNote ->
+            val restoreId = noteIdMappings[backupNote.id]
+
+            if(restoreId!=null && restoreNotesById[restoreId]?.isPrivate == true){
+                backupNote.id
+            } else {
+                null
+            }
+        }.toSet()
         for(attachment in backupAttachments){
-            val newNoteId = noteIdMappings[attachment.noteId] ?: throw IllegalStateException( "Restored note ID not found for attachment.")
+            val newNoteId = noteIdMappings[attachment.noteId] ?: throw IllegalStateException("Restored note ID not found for attachment.")
+
+            val existingAttachments = database.noteAttachmentDao().getAttachmentsForDeletion(newNoteId)
+
+            val alreadyExists = existingAttachments.any {
+                it.fileName == attachment.fileName &&
+                it.fileType == attachment.fileType &&
+                it.createdAt == attachment.createdAt
+            }
+
+            if(alreadyExists){
+                continue
+            }
 
             val sourceFile = extractedFiles[attachment.fileEntryName] ?: throw IllegalStateException( "Attachment file missing from backup: ${attachment.fileName}")
 

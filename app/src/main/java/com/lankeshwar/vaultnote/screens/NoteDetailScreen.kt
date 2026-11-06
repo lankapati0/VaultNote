@@ -79,7 +79,8 @@ fun NoteDetailScreen(
     isPrivate:Boolean = false,
     onBack:() -> Unit,
     onShare: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ){
     val tagViewModel: TagViewModel = hiltViewModel()
     val context = LocalContext.current
@@ -101,6 +102,7 @@ fun NoteDetailScreen(
         mutableStateOf(false)
     }
     var activeDecryptedAudioFile by remember { mutableStateOf<File?>(null) }
+
 
     val coroutineScope = rememberCoroutineScope()
 

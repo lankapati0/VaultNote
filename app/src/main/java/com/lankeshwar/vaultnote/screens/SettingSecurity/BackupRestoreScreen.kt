@@ -30,11 +30,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lankeshwar.vaultnote.screens.SettingsItem
@@ -327,11 +329,6 @@ fun BackupRestoreScreen(
                 )
             }
 
-            if(isRestoringBackup){
-                CircularProgressIndicator()
-                Text("Restoring your VaultNote data...")
-            }
-
             backupPreview?.let { preview ->
                 Text(
                     text = "Backup Details",
@@ -493,12 +490,11 @@ fun BackupRestoreScreen(
                 Text("Confirm Backup Restoration")
             },
             text = {
-                Text(
-                    "Restoring this backup will add its notes, attachments, tags, tasks and journal entries to your existing VaultNote data. Continue?"
-                )
+                Text("VaultNote will restore notes, attachments, tags, tasks and journal entries from this backup. Existing journal entries with matching dates will be kept, while matching tasks will be updated using backup data. Other existing data will be preserved. Continue?")
             },
             confirmButton = {
                 TextButton(
+                    enabled = !isRestoringBackup,
                     onClick = {
                         showRestoreConfirmDialog = false
                         viewModel.restoreConfirmedBackup()
@@ -518,6 +514,30 @@ fun BackupRestoreScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    if(isRestoringBackup){
+        AlertDialog(
+            onDismissRequest = {},
+            title = {Text("Restoring Backup")},
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator()
+
+                    Text(
+                        text = "Please wait while VaultNote restores your data. This may take some time.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = {}
         )
     }
 }

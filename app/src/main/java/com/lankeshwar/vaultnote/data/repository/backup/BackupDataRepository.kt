@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.first
 
 import android.content.Context
 import android.util.Log
+import com.lankeshwar.vaultnote.Utils.ImageBackupCompressor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.util.UUID
@@ -194,7 +195,25 @@ class BackupDataRepository @Inject constructor(
                         sourceFile
                     }
 
-                    archiveFiles[entryName] = backupFile
+                    val finalBackupFile = if(
+                        attachment.fileType.equals("image/jpeg", ignoreCase = true) ||
+                        sourceFile.extension.equals("jpg",ignoreCase = true) ||
+                        sourceFile.extension.equals("jpeg",ignoreCase = true)
+                    ){
+                        val compressedFile = File(context.cacheDir,"backup_compressed_${UUID.randomUUID()}_${sourceFile.name}")
+                        temporaryFiles.add(compressedFile)
+
+                        if(ImageBackupCompressor.compressJpeg(source = backupFile, destination = compressedFile)){
+                            compressedFile
+                        } else {
+                            backupFile
+                        }
+                    } else {
+                        backupFile
+                    }
+
+                    val finalEntryName = "attachments/${attachment.id}_${finalBackupFile.name}"
+                    archiveFiles[finalEntryName] = finalBackupFile
 
                     backupAttachments.add(
                         BackupAttachment(
@@ -202,7 +221,7 @@ class BackupDataRepository @Inject constructor(
                             noteId = attachment.noteId,
                             fileName = attachment.fileName,
                             fileType = attachment.fileType,
-                            fileEntryName = entryName,
+                            fileEntryName = finalEntryName,
                             createdAt = attachment.createdAt
                         )
                     )

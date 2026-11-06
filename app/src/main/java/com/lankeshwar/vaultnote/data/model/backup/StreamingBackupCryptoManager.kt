@@ -1,5 +1,6 @@
 package com.lankeshwar.vaultnote.data.model.backup
 
+import java.util.zip.ZipInputStream
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.DataInputStream
@@ -12,7 +13,6 @@ import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 import java.security.GeneralSecurityException
 import java.security.SecureRandom
-import java.util.zip.ZipInputStream
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
@@ -20,22 +20,34 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
-object StreamingBackupCryptoManager{
+object StreamingBackupCryptoManager {
+
     private const val TRANSFORMATION = "AES/GCM/NoPadding"
     private const val KEY_DERIVATION = "PBKDF2WithHmacSHA256"
+
     private const val KEY_SIZE = 256
     private const val TAG_SIZE = 128
+    private const val TAG_BYTES = TAG_SIZE / 8
+
     private const val SALT_SIZE = 16
     private const val IV_SIZE = 12
+
     private const val ITERATIONS = 600_000
     private const val MIN_ITERATIONS = 100_000
     private const val MAX_ITERATIONS = 2_000_000
-    private const val VERSION = 1
-    private val MAGIC = "VNOTEBAK".toByteArray(StandardCharsets.US_ASCII)
+
+    // Version 1: previous single-stream AES-GCM format.
+    // Version 2: independently authenticated chunks.
+    private const val VERSION = 2
+    private const val LEGACY_VERSION = 1
+
+    private const val BUFFER_SIZE = 64 * 1024
+
+    private val MAGIC =
+        "VNOTEBAK".toByteArray(StandardCharsets.US_ASCII)
+
     private val secureRandom = SecureRandom()
-    /**
-     * Encrypts an input stream directly into a backup file.
-     */
+
     @Synchronized
     fun encrypt(
         input: InputStream,
@@ -58,10 +70,10 @@ object StreamingBackupCryptoManager{
         }
 
         val salt = ByteArray(SALT_SIZE)
-        val iv = ByteArray(IV_SIZE)
+        val baseIv = ByteArray(IV_SIZE)
 
         secureRandom.nextBytes(salt)
-        secureRandom.nextBytes(iv)
+        secureRandom.nextBytes(baseIv)
 
         val header = ByteBuffer.allocate(
             MAGIC.size + 4 + 4 + SALT_SIZE + IV_SIZE
@@ -70,16 +82,10 @@ object StreamingBackupCryptoManager{
             .putInt(VERSION)
             .putInt(ITERATIONS)
             .put(salt)
-            .put(iv)
+            .put(baseIv)
             .array()
 
         val key = deriveKey(password, salt, ITERATIONS)
-
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-
-        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(TAG_SIZE, iv))
-
-        cipher.updateAAD(header)
 
         val temporaryFile = File.createTempFile(
             "vaultnote_backup_",
@@ -87,10 +93,11 @@ object StreamingBackupCryptoManager{
             parent
         )
 
-        var inputBytes = 0L
-        var encryptedBytes = 0L
-
         try {
+            var inputBytes = 0L
+            var encryptedBytes = 0L
+            var chunkIndex = 0L
+
             BufferedOutputStream(
                 FileOutputStream(temporaryFile)
             ).use { output ->
@@ -98,38 +105,78 @@ object StreamingBackupCryptoManager{
                 output.write(header)
                 encryptedBytes += header.size
 
-                val buffer = ByteArray(64 * 1024)
+                val buffer = ByteArray(BUFFER_SIZE)
 
                 while (true) {
-                    val count = input.read(buffer)
+                    val count = readChunk(input, buffer)
 
                     if (count == -1) break
-                    if(count == 0) continue
+
                     inputBytes += count
 
-                    val encrypted = cipher.update(buffer, 0, count)
+                    val cipher = Cipher.getInstance(TRANSFORMATION)
 
-                    if (encrypted != null) {
-                        output.write(encrypted)
-                        encryptedBytes += encrypted.size
+                    cipher.init(
+                        Cipher.ENCRYPT_MODE,
+                        key,
+                        GCMParameterSpec(
+                            TAG_SIZE,
+                            createNonce(baseIv, chunkIndex)
+                        )
+                    )
+
+                    cipher.updateAAD(
+                        createAad(header, chunkIndex, count)
+                    )
+
+                    // Each chunk is encrypted independently.
+                    val encrypted = cipher.doFinal(buffer, 0, count)
+
+                    output.writeIntValue(count)
+                    output.write(encrypted)
+
+                    encryptedBytes += 4 + encrypted.size
+
+                    check(chunkIndex < Long.MAX_VALUE) {
+                        "Backup contains too many chunks."
                     }
+
+                    chunkIndex++
                 }
-                val finalEncrypted = cipher.doFinal()
-                output.write(finalEncrypted)
-                encryptedBytes += finalEncrypted.size
+
+                check(inputBytes > 0L) {
+                    "ZIP input is empty."
+                }
+
+                // Authenticated end marker.
+                // This allows restore to detect truncated backups.
+                val finalCipher = Cipher.getInstance(TRANSFORMATION)
+
+                finalCipher.init(
+                    Cipher.ENCRYPT_MODE,
+                    key,
+                    GCMParameterSpec(
+                        TAG_SIZE,
+                        createNonce(baseIv, chunkIndex)
+                    )
+                )
+
+                finalCipher.updateAAD(
+                    createAad(header, chunkIndex, 0)
+                )
+
+                val finalTag = finalCipher.doFinal()
+
+                output.writeIntValue(0)
+                output.write(finalTag)
+
+                encryptedBytes += 4 + finalTag.size
+
                 output.flush()
             }
 
-            check(inputBytes > 0L) {
-                "ZIP input is empty. Input bytes: $inputBytes"
-            }
-
             check(temporaryFile.length() == encryptedBytes) {
-                "Encryption write mismatch. Expected: $encryptedBytes, actual: ${temporaryFile.length()}"
-            }
-
-            check(temporaryFile.length() > 0L) {
-                "Encrypted temporary file is empty."
+                "Encryption write mismatch."
             }
 
             check(temporaryFile.renameTo(destination)) {
@@ -140,17 +187,13 @@ object StreamingBackupCryptoManager{
                 "Encrypted destination is empty after rename."
             }
 
-        } catch (exception: Exception) {
+        } catch (exception: Throwable) {
             temporaryFile.delete()
             destination.delete()
             throw exception
         }
     }
 
-    /**
-     * Decrypts a backup into a temporary file.
-     * The destination is created only after authentication succeeds.
-     */
     @Synchronized
     fun decrypt(
         source: File,
@@ -168,7 +211,7 @@ object StreamingBackupCryptoManager{
         val headerSize =
             MAGIC.size + 4 + 4 + SALT_SIZE + IV_SIZE
 
-        require(source.length() > headerSize + 16) {
+        require(source.length() > headerSize + TAG_BYTES) {
             "Invalid or incomplete backup file."
         }
 
@@ -186,7 +229,9 @@ object StreamingBackupCryptoManager{
         )
 
         try {
-            BufferedInputStream(FileInputStream(source)).use { rawInput ->
+            BufferedInputStream(
+                FileInputStream(source)
+            ).use { rawInput ->
 
                 val input = DataInputStream(rawInput)
 
@@ -199,21 +244,26 @@ object StreamingBackupCryptoManager{
 
                 val version = input.readInt()
 
-                require(version == VERSION) {
+                require(
+                    version == VERSION ||
+                            version == LEGACY_VERSION
+                ) {
                     "Unsupported backup format version."
                 }
 
                 val iterations = input.readInt()
 
-                require(iterations in MIN_ITERATIONS..MAX_ITERATIONS) {
+                require(
+                    iterations in MIN_ITERATIONS..MAX_ITERATIONS
+                ) {
                     "Unsupported backup encryption settings."
                 }
 
                 val salt = ByteArray(SALT_SIZE)
                 input.readFully(salt)
 
-                val iv = ByteArray(IV_SIZE)
-                input.readFully(iv)
+                val baseIv = ByteArray(IV_SIZE)
+                input.readFully(baseIv)
 
                 val header = ByteBuffer.allocate(headerSize)
                     .order(ByteOrder.BIG_ENDIAN)
@@ -221,59 +271,43 @@ object StreamingBackupCryptoManager{
                     .putInt(version)
                     .putInt(iterations)
                     .put(salt)
-                    .put(iv)
+                    .put(baseIv)
                     .array()
 
                 val key = deriveKey(password, salt, iterations)
-
-                val cipher = Cipher.getInstance(TRANSFORMATION)
-
-                cipher.init(
-                    Cipher.DECRYPT_MODE,
-                    key,
-                    GCMParameterSpec(TAG_SIZE, iv)
-                )
-
-                cipher.updateAAD(header)
 
                 BufferedOutputStream(
                     FileOutputStream(temporaryFile)
                 ).use { output ->
 
-                    val buffer = ByteArray(64 * 1024)
+                    when (version) {
+                        LEGACY_VERSION -> {
+                            // Keep compatibility with existing backups.
+                            decryptLegacy(
+                                input = input,
+                                output = output,
+                                header = header,
+                                baseIv = baseIv,
+                                key = key
+                            )
+                        }
 
-                    while (true) {
-                        val count = input.read(buffer)
-
-                        if (count == -1) break
-
-                        val decrypted = cipher.update(buffer, 0, count)
-
-                        if (decrypted != null) {
-                            output.write(decrypted)
+                        VERSION -> {
+                            decryptChunked(
+                                input = input,
+                                output = output,
+                                header = header,
+                                baseIv = baseIv,
+                                key = key
+                            )
                         }
                     }
 
-                    // Authentication is verified here.
-                    output.write(cipher.doFinal())
                     output.flush()
-               }
-            }
-
-            val decryptedEntries = mutableSetOf<String>()
-            ZipInputStream(BufferedInputStream(FileInputStream(temporaryFile))).use { testZip ->
-                while(true){
-                    val entry = testZip.nextEntry ?: break
-                    android.util.Log.d("VaultNoteBackup", "DECRYPTED TEMP ENTRY: [${entry.name}]")
-
-                    if(!decryptedEntries.add(entry.name)){
-                        android.util.Log.d("VaultNoteBackup", "DUPLICATE IN DECRYPTED TEMP ZIP: [${entry.name}]")
-                    }
-                    testZip.closeEntry()
                 }
-
-
             }
+
+            verifyZipEntries(temporaryFile)
 
             check(temporaryFile.renameTo(destination)) {
                 "Unable to save restored backup data."
@@ -287,10 +321,223 @@ object StreamingBackupCryptoManager{
                 exception
             )
 
-        } catch (exception: Exception) {
+        } catch (exception: Throwable) {
             temporaryFile.delete()
             throw exception
         }
+    }
+
+    private fun decryptChunked(
+        input: DataInputStream,
+        output: BufferedOutputStream,
+        header: ByteArray,
+        baseIv: ByteArray,
+        key: SecretKeySpec
+    ) {
+        var chunkIndex = 0L
+        var totalBytes = 0L
+
+        while (true) {
+            val plainLength = input.readInt()
+
+            // Zero means the authenticated end marker.
+            if (plainLength == 0) {
+
+                val cipher = Cipher.getInstance(TRANSFORMATION)
+
+                cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    key,
+                    GCMParameterSpec(
+                        TAG_SIZE,
+                        createNonce(baseIv, chunkIndex)
+                    )
+                )
+
+                cipher.updateAAD(
+                    createAad(header, chunkIndex, 0)
+                )
+
+                val finalTag = ByteArray(TAG_BYTES)
+                input.readFully(finalTag)
+
+                // Verifies the final authentication tag.
+                cipher.doFinal(finalTag)
+
+                check(input.read() == -1) {
+                    "Unexpected data after backup end marker."
+                }
+
+                check(totalBytes > 0L) {
+                    "Backup contains no ZIP data."
+                }
+
+                break
+            }
+
+            require(plainLength in 1..BUFFER_SIZE) {
+                "Invalid backup chunk size."
+            }
+
+            val encrypted = ByteArray(plainLength + TAG_BYTES)
+            input.readFully(encrypted)
+
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+
+            cipher.init(
+                Cipher.DECRYPT_MODE,
+                key,
+                GCMParameterSpec(
+                    TAG_SIZE,
+                    createNonce(baseIv, chunkIndex)
+                )
+            )
+
+            cipher.updateAAD(
+                createAad(header, chunkIndex, plainLength)
+            )
+
+            // Each chunk is authenticated before being written.
+            val decrypted = cipher.doFinal(encrypted)
+
+            check(decrypted.size == plainLength) {
+                "Invalid decrypted chunk size."
+            }
+
+            output.write(decrypted)
+            totalBytes += decrypted.size
+
+            check(chunkIndex < Long.MAX_VALUE) {
+                "Backup contains too many chunks."
+            }
+
+            chunkIndex++
+        }
+    }
+
+    private fun decryptLegacy(
+        input: DataInputStream,
+        output: BufferedOutputStream,
+        header: ByteArray,
+        baseIv: ByteArray,
+        key: SecretKeySpec
+    ) {
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            key,
+            GCMParameterSpec(TAG_SIZE, baseIv)
+        )
+
+        cipher.updateAAD(header)
+
+        val buffer = ByteArray(BUFFER_SIZE)
+
+        while (true) {
+            val count = input.read(buffer)
+
+            if (count == -1) break
+            if (count == 0) continue
+
+            val decrypted = cipher.update(buffer, 0, count)
+
+            if (decrypted != null) {
+                output.write(decrypted)
+            }
+        }
+
+        // Legacy version 1 authentication.
+        output.write(cipher.doFinal())
+    }
+
+    private fun createNonce(
+        baseIv: ByteArray,
+        chunkIndex: Long
+    ): ByteArray {
+        return ByteBuffer.allocate(IV_SIZE)
+            .order(ByteOrder.BIG_ENDIAN)
+            .put(baseIv, 0, 4)
+            .putLong(chunkIndex)
+            .array()
+    }
+
+    private fun createAad(
+        header: ByteArray,
+        chunkIndex: Long,
+        plainLength: Int
+    ): ByteArray {
+        return ByteBuffer.allocate(header.size + 8 + 4)
+            .order(ByteOrder.BIG_ENDIAN)
+            .put(header)
+            .putLong(chunkIndex)
+            .putInt(plainLength)
+            .array()
+    }
+
+    private fun readChunk(
+        input: InputStream,
+        buffer: ByteArray
+    ): Int {
+        var total = 0
+
+        while (total < buffer.size) {
+            val count = input.read(
+                buffer,
+                total,
+                buffer.size - total
+            )
+
+            if (count == -1) {
+                return if (total == 0) -1 else total
+            }
+
+            if (count == 0) {
+                val singleByte = input.read()
+
+                if (singleByte == -1) {
+                    return if (total == 0) -1 else total
+                }
+
+                buffer[total++] = singleByte.toByte()
+            } else {
+                total += count
+            }
+        }
+
+        return total
+    }
+
+    private fun verifyZipEntries(file: File) {
+        val entries = mutableSetOf<String>()
+
+        java.util.zip.ZipInputStream(
+            BufferedInputStream(FileInputStream(file))
+        ).use { zip ->
+
+            while (true) {
+                val entry = zip.nextEntry ?: break
+
+                check(entries.add(entry.name)) {
+                    "Duplicate entry in decrypted backup."
+                }
+
+                zip.closeEntry()
+            }
+        }
+
+        check(entries.isNotEmpty()) {
+            "Decrypted backup contains no ZIP entries."
+        }
+    }
+
+    private fun BufferedOutputStream.writeIntValue(value: Int) {
+        write(
+            ByteBuffer.allocate(4)
+                .order(ByteOrder.BIG_ENDIAN)
+                .putInt(value)
+                .array()
+        )
     }
 
     private fun deriveKey(
@@ -298,7 +545,6 @@ object StreamingBackupCryptoManager{
         salt: ByteArray,
         iterations: Int
     ): SecretKeySpec {
-
         val keySpec = PBEKeySpec(
             password,
             salt,

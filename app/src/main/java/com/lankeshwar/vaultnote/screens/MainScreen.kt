@@ -1,6 +1,7 @@
 package com.lankeshwar.vaultnote.screens
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Build
 import android.view.WindowManager
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Share
@@ -87,7 +89,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
     val currentRoute = backstackEntry?.destination?.route
 
     val notes by notesViewModel.notesFlow.collectAsState()
-
+    var showDeleteNoteDialog by remember { mutableStateOf(false) }
     var handleNotificationNoteId by remember { mutableStateOf<Int?>(null) }
     var selectedNote by remember {
         mutableStateOf<Note?>(null)
@@ -318,13 +320,31 @@ fun MainScreen(selectTheme: AppTheme? = null,
                                 contentDescription = "Edit Note"
                             )
                         }
-
+                        IconButton(
+                            onClick = {showDeleteNoteDialog = true}
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Note",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                         IconButton(
                             onClick = shareNotes
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Share,
                                 contentDescription = "Share Note"
+                            )
+                        }
+                    } else if (currentRoute == Routes.EDIT_NOTE){
+                        IconButton(
+                            onClick = {showDeleteNoteDialog = true}
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Note",
+                                tint = MaterialTheme.colorScheme.error
                             )
                         }
                     }
@@ -593,6 +613,10 @@ fun MainScreen(selectTheme: AppTheme? = null,
                         },
                         onEdit = {
                             navController.navigate(Routes.EDIT_NOTE)
+                        },
+                        onDelete = {
+                            notesViewModel.deleteNotes(note)
+                            navController.popBackStack()
                         }
                     )
                 }
@@ -773,6 +797,42 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     }
                 )
             }
+        }
+
+        if(showDeleteNoteDialog){
+            AlertDialog(
+                onDismissRequest = {
+                    showDeleteNoteDialog = false
+                },
+                title = {            Text("Delete note?") },
+                text = {            Text("This note will be moved to Trash.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteNoteDialog = false
+                            selectedNote?.let { note ->
+                                notesViewModel.deleteNotes(note)
+                            }
+                            navController.navigate(Routes.NOTES){
+                                popUpTo(Routes.NOTES){
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
+                            }
+                        }
+                    ) {
+                        Text(
+                            "Delete",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {showDeleteNoteDialog = false}) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
     }
