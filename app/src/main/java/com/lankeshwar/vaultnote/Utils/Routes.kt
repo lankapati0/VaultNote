@@ -22,4 +22,8 @@ object Routes {
     const val JOURNAL_TEMPLATES = "journal_templates"
     const val BACKUP_RESTORE = "backup_restore"
 
+    const val AUTOMATIC_BACKUP_SETTINGS = "automatic_backup_settings"
+    const val CREATE_BACKUP = "create_backup"
+    const val BACKUP_HISTORY = "backup_history"
+    const val RESTORE_BACKUP = "restore_backup"
 }

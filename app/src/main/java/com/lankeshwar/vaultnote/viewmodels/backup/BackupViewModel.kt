@@ -1,7 +1,8 @@
-package com.lankeshwar.vaultnote.viewmodels
+package com.lankeshwar.vaultnote.viewmodels.backup
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lankeshwar.vaultnote.Utils.BackupManager
@@ -159,7 +160,7 @@ class BackupViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e(
+                Log.e(
                     "VaultNoteBackup",
                     "Backup PIN authentication failed",
                     e
@@ -285,7 +286,7 @@ class BackupViewModel @Inject constructor(
                         "Backup integrity verification failed. The saved file does not match the original."
                     }
                 }
-                android.util.Log.d(
+                Log.d(
                     "VaultNoteBackup",
                     "SUCCESS: Backup copied to destination. Bytes: $copiedBytes"
                 )
@@ -293,7 +294,7 @@ class BackupViewModel @Inject constructor(
                     "Backup created successfully. Saved $copiedBytes bytes."
             } catch (e: Exception) {
 
-                android.util.Log.e(
+                Log.e(
                     "VaultNoteBackup",
                     "Backup creation failed",
                     e
@@ -354,7 +355,7 @@ class BackupViewModel @Inject constructor(
                 previewSuccessful = true
 
             } catch (e: Exception) {
-                android.util.Log.e(
+                Log.e(
                     "VaultNoteBackup",
                     "Backup preview failed",
                     e
@@ -401,7 +402,7 @@ class BackupViewModel @Inject constructor(
 
                 _backupPreview.value = null
             }catch (e: Exception){
-                android.util.Log.e(
+                Log.e(
                     "VaultNoteBackup",
                     "Backup restoration failed",
                     e
@@ -534,4 +535,56 @@ class BackupViewModel @Inject constructor(
         }
     }
 
+    fun preserveLocalBackup(backupFile: File){
+        renameLocaleBackup(backupFile = backupFile, preserve = true)
+    }
+
+    fun unpreserveLocalBackup(backupFile: File){
+        renameLocaleBackup(backupFile = backupFile, preserve = false)
+    }
+
+    private fun renameLocaleBackup(backupFile: File, preserve:Boolean){
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO){
+                    val backupDirectory = File(context.filesDir,"local_backups")
+                    val validDirectory = backupDirectory.canonicalFile
+                    val source = backupFile.canonicalFile
+
+                    if(source.parentFile != validDirectory || !source.isFile || source.extension != "vnb"){
+                        throw IOException("Invalid backup file.")
+                    }
+
+                    val currentName = source.name
+                    val isAlreadyPreserved = currentName.startsWith("Preserved_")
+                    if(preserve == isAlreadyPreserved){
+                        return@withContext
+                    }
+
+                    val newName = if(preserve){
+                        "Preserved_$currentName"
+                    } else {
+                        currentName.removePrefix("Preserved_")
+                    }
+
+                    val destination = File(validDirectory,newName)
+                    if (destination.exists()) {
+                        throw IOException("A backup with this name already exists.")
+                    }
+
+                    if (!source.renameTo(destination)) {
+                        throw IOException("Could not update backup preservation.")
+                    }
+                }
+                _backupMessage.value = if(preserve){
+                    "Backup preserved successfully."
+                } else {
+                    "Backup preservation removed."
+                }
+                loadLocalBackups()
+            }catch (e: Exception){
+                _backupMessage.value = e.message ?: "Unable to update backup preservation."
+            }
+        }
+    }
 }

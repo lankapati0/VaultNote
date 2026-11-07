@@ -1,7 +1,6 @@
 package com.lankeshwar.vaultnote.screens
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Intent
 import android.os.Build
 import android.view.WindowManager
@@ -38,9 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
@@ -52,12 +49,16 @@ import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
 import com.lankeshwar.vaultnote.data.model.JournalTemplate
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppInfoScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppLockScreen
-import com.lankeshwar.vaultnote.screens.SettingSecurity.BackupRestoreScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.ChangePinScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.FingerprintUnlockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.PrivacySecurityScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.RecentlyDeletedScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.TagManagementScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.AutomaticBackupSettingsScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.BackupHistoryScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.BackupRestoreMenuScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.CreateBackupScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.RestoreBackupScreen
 import com.lankeshwar.vaultnote.screens.journal.JournalEditorScreen
 import com.lankeshwar.vaultnote.screens.journal.JournalScreen
 import com.lankeshwar.vaultnote.screens.journal.JournalTemplateScreen
@@ -66,8 +67,8 @@ import com.lankeshwar.vaultnote.screens.tasks.TaskListScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 import com.lankeshwar.vaultnote.viewmodels.TaskViewModel
+import com.lankeshwar.vaultnote.viewmodels.backup.AutomaticBackupSettingsViewModel
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -281,6 +282,11 @@ fun MainScreen(selectTheme: AppTheme? = null,
             Routes.APP_INFO -> "About VaultNote"
             Routes.TAG_MANAGEMENT -> "Manage Tags"
             Routes.JOURNAL -> "Daily Journal"
+            Routes.BACKUP_RESTORE -> "Backup & Restore"
+            Routes.CREATE_BACKUP -> "Create Backup"
+            Routes.BACKUP_HISTORY -> "Backup History"
+            Routes.RESTORE_BACKUP -> "Restore Backup"
+            Routes.AUTOMATIC_BACKUP_SETTINGS -> "Automatic Backups"
             else -> "VaultNote"
         }
     Scaffold (
@@ -685,9 +691,54 @@ fun MainScreen(selectTheme: AppTheme? = null,
             }
 
             composable(Routes.BACKUP_RESTORE){
-                BackupRestoreScreen()
+                BackupRestoreMenuScreen(
+                    onCreateBackupClick = {
+                        navController.navigate(Routes.CREATE_BACKUP)
+                    },
+                    onBackupHistoryClick = {
+                        navController.navigate(Routes.BACKUP_HISTORY)
+                    },
+                    onRestoreBackupClick = {
+                        navController.navigate(Routes.RESTORE_BACKUP)
+                    },
+                    onAutomaticBackupClick = {
+                        navController.navigate(Routes.AUTOMATIC_BACKUP_SETTINGS)
+                    }
+                )
             }
 
+            composable(Routes.CREATE_BACKUP){
+                CreateBackupScreen()
+            }
+
+            composable(Routes.BACKUP_HISTORY){
+                BackupHistoryScreen()
+            }
+
+            composable(Routes.RESTORE_BACKUP){
+                RestoreBackupScreen()
+            }
+
+            composable(Routes.AUTOMATIC_BACKUP_SETTINGS) {
+                val backupSettingsViewModel: AutomaticBackupSettingsViewModel = hiltViewModel()
+                val backupState by backupSettingsViewModel.uiState.collectAsState()
+
+                AutomaticBackupSettingsScreen(
+                    isEnabled = backupState.isEnabled,
+                    frequency = backupState.frequency,
+                    isPasswordConfigured = backupState.isPasswordConfigured,
+                    lastBackupText = backupState.lastBackupText,
+                    onEnabledChange = { enabled ->
+                        backupSettingsViewModel.updateEnabled(enabled)
+                    },
+                    onPasswordSave = { password ->
+                        backupSettingsViewModel.savePassword(password)
+                    },
+                    onFrequencyChange = {frequency ->
+                        backupSettingsViewModel.updateFrequency(frequency)
+                    }
+                )
+            }
 
             composable(Routes.PRIVACY_SECURITY) {
                 PrivacySecurityScreen(

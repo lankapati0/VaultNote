@@ -32,6 +32,16 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/vault_note_widget_info"/>
         </receiver>-->
+        
+        <provider
+            android:authorities="${applicationId}.androidx-startup"
+            android:name="androidx.startup.InitializationProvider"
+            tools:node="merge">
+            <meta-data
+                tools:node="remove"
+                android:value="androidx.startup"
+                android:name="androidx.work.WorkManagerInitializer"/>
+        </provider>
 
         <provider
             android:name="androidx.core.content.FileProvider"

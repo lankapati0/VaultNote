@@ -1,8 +1,20 @@
 package com.lankeshwar.vaultnote
 
 import android.app.Application
+import androidx.hilt.work.HiltWorker
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 @HiltAndroidApp
-class VaultNoteApp: Application() {
+class VaultNoteApp: Application(), Configuration.Provider {
+
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 }
