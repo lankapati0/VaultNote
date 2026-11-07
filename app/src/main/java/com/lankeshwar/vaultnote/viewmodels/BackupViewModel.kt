@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -30,7 +31,8 @@ class BackupViewModel @Inject constructor(
     private val privateNoteSession: PrivateNoteSession,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
-
+    private val _localBackups = MutableStateFlow<List<File>>(emptyList())
+    val localBackups: StateFlow<List<File>> = _localBackups.asStateFlow()
     private val _isCreatingBackup = MutableStateFlow(false)
     val isCreatingBackup: StateFlow<Boolean> = _isCreatingBackup.asStateFlow()
 
@@ -455,4 +457,81 @@ class BackupViewModel @Inject constructor(
         }
         return digest.digest()
     }
+
+    fun createLocalBackup(password: CharArray){
+        if(isCreatingBackup.value || isRestoringBackup.value){
+            password.fill('\u0000')
+            return
+        }
+        if(PinManager.hasPin(context)&& backupSessionLease == null){
+            password.fill('\u0000')
+            _backupMessage.value = "Please authenticate before creating a backup."
+            return
+        }
+
+        viewModelScope.launch {
+            _isCreatingBackup.value = true
+            val backupDirectory = File(context.filesDir,"local_backups")
+            val backupFile = File(backupDirectory,"VaultNote_Local_${System.currentTimeMillis()}.vnb")
+
+            try {
+                withContext(Dispatchers.IO){
+                    if(!backupDirectory.exists() && !backupDirectory.mkdirs()){
+                        throw IOException("Could not create backup directory.")
+                    }
+
+                    backupManager.createBackup(destination = backupFile,password=password)
+                    if (!backupFile.exists() || backupFile.length() <= 0L) {
+                        throw IOException("Backup file was not created correctly.")
+                    }
+                }
+                _backupMessage.value = "Local backup created successfully."
+            }catch (e: Exception){
+                backupFile.delete()
+                _backupMessage.value = "Local backup failed: ${e.message}"
+            } finally {
+                password.fill('\u0000')
+                _isCreatingBackup.value = false
+                privateNoteSession.lock()
+                backupSessionLease?.close()
+                backupSessionLease = null
+            }
+
+        }
+    }
+
+    fun loadLocalBackups(){
+        viewModelScope.launch {
+            val backups = withContext(Dispatchers.IO){
+                val directory = File(context.filesDir,"local_backups")
+                directory.listFiles()?.filter { it.isFile && it.extension == "vnb" }?.sortedByDescending { it.lastModified() } ?: emptyList()
+            }
+            _localBackups.value = backups
+        }
+    }
+
+    fun deleteLocalBackups(backupFile:File){
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO){
+                    val directory = File(context.filesDir,"local_backups").canonicalFile
+
+                    val target = backupFile.canonicalFile
+                    require(target.parentFile == directory) {
+                        "Invalid backup file."
+                    }
+
+                    if (target.exists() && !target.delete()) {
+                        throw IOException("Could not delete backup.")
+                    }
+                }
+
+                loadLocalBackups()
+                _backupMessage.value = "Backup deleted successfully."
+            } catch (e: Exception){
+                _backupMessage.value = "Could not delete backup: ${e.message}"
+            }
+        }
+    }
+
 }

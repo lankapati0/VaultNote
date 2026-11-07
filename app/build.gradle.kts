@@ -49,6 +49,8 @@ dependencies {
     implementation("androidx.fragment:fragment-ktx:1.9.1")
     implementation("androidx.navigation:navigation-compose:2.10.2")
     implementation("androidx.biometric:biometric:1.1.0")
+
+    implementation(libs.androidx.work.runtime)
     implementation("androidx.activity:activity-compose:1.12.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
