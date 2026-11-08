@@ -5,7 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lankeshwar.vaultnote.Utils.BackupManager
+import com.lankeshwar.vaultnote.Utils.backup_trash.BackupManager
 import com.lankeshwar.vaultnote.Utils.PinManager
 import com.lankeshwar.vaultnote.data.repository.backup.BackupPreview
 import com.lankeshwar.vaultnote.data.repository.backup.BackupRestoreRepository

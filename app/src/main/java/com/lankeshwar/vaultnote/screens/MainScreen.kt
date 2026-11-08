@@ -43,6 +43,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.lankeshwar.vaultnote.Utils.Routes
+import com.lankeshwar.vaultnote.Utils.backup_trash.TrashCleanupScheduler
 import com.lankeshwar.vaultnote.data.Note
 import com.lankeshwar.vaultnote.data.db.entity.JournalEntity
 import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
@@ -59,6 +60,7 @@ import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.BackupHistoryScre
 import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.BackupRestoreMenuScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.CreateBackupScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.RestoreBackupScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.TrashRetentionSettings
 import com.lankeshwar.vaultnote.screens.journal.JournalEditorScreen
 import com.lankeshwar.vaultnote.screens.journal.JournalScreen
 import com.lankeshwar.vaultnote.screens.journal.JournalTemplateScreen
@@ -68,6 +70,7 @@ import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 import com.lankeshwar.vaultnote.viewmodels.TaskViewModel
 import com.lankeshwar.vaultnote.viewmodels.backup.AutomaticBackupSettingsViewModel
+import com.lankeshwar.vaultnote.viewmodels.backup.TrashRetentionSettingsViewModel
 import kotlinx.coroutines.launch
 
 
@@ -286,6 +289,7 @@ fun MainScreen(selectTheme: AppTheme? = null,
             Routes.CREATE_BACKUP -> "Create Backup"
             Routes.BACKUP_HISTORY -> "Backup History"
             Routes.RESTORE_BACKUP -> "Restore Backup"
+            Routes.TRASH_RETENTION -> "Trash Retention Settings"
             Routes.AUTOMATIC_BACKUP_SETTINGS -> "Automatic Backups"
             else -> "VaultNote"
         }
@@ -703,6 +707,9 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     },
                     onAutomaticBackupClick = {
                         navController.navigate(Routes.AUTOMATIC_BACKUP_SETTINGS)
+                    },
+                    onTrashRetentionClick = {
+                        navController.navigate(Routes.TRASH_RETENTION)
                     }
                 )
             }
@@ -717,6 +724,20 @@ fun MainScreen(selectTheme: AppTheme? = null,
 
             composable(Routes.RESTORE_BACKUP){
                 RestoreBackupScreen()
+            }
+
+            composable(Routes.TRASH_RETENTION){
+                val trashRetentionViewModel: TrashRetentionSettingsViewModel = hiltViewModel()
+                val selectedRetentionDays by trashRetentionViewModel.retentionDays.collectAsState()
+                TrashRetentionSettings(
+                    selectedRetentionDays = selectedRetentionDays,
+                    onRetentionDaysChange = {days ->
+                        trashRetentionViewModel.updateRetentionDays(days)
+                    },
+                    onRunCleanupNow = {
+                        TrashCleanupScheduler.runNow(context)
+                    }
+                )
             }
 
             composable(Routes.AUTOMATIC_BACKUP_SETTINGS) {

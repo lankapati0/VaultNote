@@ -25,7 +25,8 @@ fun BackupRestoreMenuScreen(
     onCreateBackupClick:()-> Unit,
     onBackupHistoryClick:()-> Unit,
     onRestoreBackupClick:()-> Unit,
-    onAutomaticBackupClick:()-> Unit
+    onAutomaticBackupClick:()-> Unit,
+    onTrashRetentionClick:()-> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -61,6 +62,11 @@ fun BackupRestoreMenuScreen(
             title = "Automatic Backup Settings",
             description = "Configure daily or weekly automatic backups.",
             onClick = onAutomaticBackupClick
+        )
+        BackupMenuItem(
+            title = "Trash Retention Settings",
+            description = "Choose how long deleted notes stay in Recently Deleted.",
+            onClick = onTrashRetentionClick
         )
     }
 }

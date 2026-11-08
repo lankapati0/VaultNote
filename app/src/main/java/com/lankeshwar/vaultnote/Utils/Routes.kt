@@ -26,4 +26,5 @@ object Routes {
     const val CREATE_BACKUP = "create_backup"
     const val BACKUP_HISTORY = "backup_history"
     const val RESTORE_BACKUP = "restore_backup"
+    const val TRASH_RETENTION = "trash_retention"
 }

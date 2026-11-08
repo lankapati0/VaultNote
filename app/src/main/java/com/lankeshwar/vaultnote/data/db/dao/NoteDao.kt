@@ -35,13 +35,8 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE isPrivate = 1 ORDER BY id DESC")
     suspend fun getAllPrivateNotesForMigration(): List<NoteEntity>
 
-    @Query("""
-    SELECT * FROM notes
-    WHERE isPrivate = 0
-    AND (title LIKE '%' || :query || '%'
-    OR preview LIKE '%' || :query || '%')
-    ORDER BY id DESC
-""")
+    @Query("""SELECT * FROM notes WHERE isPrivate = 0 AND (title LIKE '%' || :query || '%' OR preview LIKE '%' || :query || '%')
+    ORDER BY id DESC""")
     fun searchRegularNotes(query: String): Flow<List<NoteEntity>>
 
     @Query("UPDATE notes SET isPinned = :isPinned WHERE id = :noteId")
@@ -50,10 +45,10 @@ interface NoteDao {
     @Query("UPDATE notes SET isFavorite = :isFavorite WHERE id = :noteId")
     suspend fun updateFavoriteStatus(noteId: Int, isFavorite: Boolean)
 
-    @Query("UPDATE notes SET isDeleted = 1 WHERE id = :noteId")
-    suspend fun moveToRecentlyDeleted(noteId:Int)
+    @Query(""" UPDATE notes SET isDeleted = 1, deletedAt = :deletedAt WHERE id = :noteId""")
+    suspend fun moveToRecentlyDeleted(noteId:Int, deletedAt:Long = System.currentTimeMillis())
 
-    @Query("UPDATE notes SET isDeleted = 0 WHERE id = :noteId")
+    @Query("""UPDATE notes SET isDeleted = 0, deletedAt = NULL WHERE id = :noteId""")
     suspend fun restoreNote(noteId: Int)
 
     @Query("DELETE FROM notes WHERE id = :noteId")
@@ -62,32 +57,17 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE isDeleted = 1 ORDER BY id DESC")
     fun getRecentlyDeletedNotes(): Flow<List<NoteEntity>>
 
-    @Query("""
-    UPDATE notes
-    SET reminderTime = :reminderTime,
-        reminderRepeat = :reminderRepeat,
-        isReminderEnabled = :isEnabled
-    WHERE id = :noteId
-""")
+    @Query("""UPDATE notes SET reminderTime = :reminderTime, reminderRepeat = :reminderRepeat, isReminderEnabled = :isEnabled WHERE id = :noteId""")
     suspend fun updateReminder(noteId:Int, reminderTime:Long?, reminderRepeat: String, isEnabled: Boolean)
 
-    @Query("""
-    UPDATE notes
-    SET isReminderEnabled = 0
-    WHERE id = :noteId
-    AND reminderRepeat = 'NONE'
-""")
+    @Query("""UPDATE notes SET isReminderEnabled = 0 WHERE id = :noteId AND reminderRepeat = 'NONE'""")
     suspend fun disableOneTimeReminder(noteId:Int){
 
     }
 
-    @Query("""
-    SELECT * FROM notes
-    WHERE isPrivate = 0
-    AND isDeleted = 0
-    ORDER BY id DESC
-    LIMIT 3
-""")
+    @Query("""SELECT * FROM notes WHERE isPrivate = 0 AND isDeleted = 0 ORDER BY id DESC LIMIT 3""")
     suspend fun getRecentNotesForWidget(): List<NoteEntity>
 
+    @Query("""SELECT * FROM notes WHERE isDeleted = 1 AND deletedAt IS NOT NULL AND deletedAt <= :cutoffTime""")
+    suspend fun getExpiredDeletedNotes(cutoffTime:Long): List<NoteEntity>
 }

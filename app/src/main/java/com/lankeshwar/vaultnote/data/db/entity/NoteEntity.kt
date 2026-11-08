@@ -26,5 +26,7 @@ data class NoteEntity(
     @ColumnInfo(defaultValue = "NONE")
     val reminderRepeat:String = "NONE",
     @ColumnInfo(defaultValue = "0")
-    val isReminderEnabled: Boolean = false
+    val isReminderEnabled: Boolean = false,
+    @ColumnInfo(defaultValue = "NULL")
+    val deletedAt: Long? = null
 )

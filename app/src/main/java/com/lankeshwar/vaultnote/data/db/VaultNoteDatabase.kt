@@ -3,6 +3,7 @@ package com.lankeshwar.vaultnote.data.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
+import androidx.room.withTransaction
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.lankeshwar.vaultnote.data.db.dao.JournalDao
 import com.lankeshwar.vaultnote.data.db.dao.NoteAttachmentDao
@@ -22,7 +23,7 @@ import com.lankeshwar.vaultnote.data.model.JournalPhotoEntity
 @Database(
     entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class, NoteAttachmentEntity::class, TaskEntity::class,
         JournalEntity::class, JournalPhotoEntity::class],
-    version = 17,
+    version = 18,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
@@ -291,6 +292,20 @@ abstract class VaultNoteDatabase: RoomDatabase() {
             }
         }
 
-
+        val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE notes ADD COLUMN deletedAt INTEGER DEFAULT NULL"
+                )
+            }
+        }
     }
+
+    suspend fun permanentlyDeleteNoteWithAttachments(noteId:Int){
+        withTransaction {
+            noteAttachmentDao().deleteAttachmentsForNote(noteId)
+            noteDao().permanentlyDeleteNote(noteId)
+        }
+    }
+
 }

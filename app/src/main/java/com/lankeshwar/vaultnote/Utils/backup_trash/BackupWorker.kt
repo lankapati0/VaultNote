@@ -1,8 +1,11 @@
-package com.lankeshwar.vaultnote.Utils
+package com.lankeshwar.vaultnote.Utils.backup_trash
 import androidx.hilt.work.HiltWorker
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.lankeshwar.vaultnote.Utils.PinManager
+import com.lankeshwar.vaultnote.Utils.ScheduledBackupPasswordStore
 import com.lankeshwar.vaultnote.screens.private_note_screen.PrivateNoteSession
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -53,7 +56,7 @@ class BackupWorker @AssistedInject constructor(
                 Result.success()
             }
         } catch (e: Exception) {
-            android.util.Log.e("VaultNoteBackup", "Scheduled backup failed", e)
+            Log.e("VaultNoteBackup", "Scheduled backup failed", e)
             backupFile?.delete()
             return Result.failure()
         } finally {
@@ -75,7 +78,7 @@ class BackupWorker @AssistedInject constructor(
 
         oldBackups.forEach{ backup ->
             if (!backup.delete()) {
-                android.util.Log.w(
+                Log.w(
                     "VaultNoteBackup",
                     "Could not delete old automatic backup: ${backup.name}"
                 )
@@ -88,4 +91,3 @@ class BackupWorker @AssistedInject constructor(
 
     }
 }
-

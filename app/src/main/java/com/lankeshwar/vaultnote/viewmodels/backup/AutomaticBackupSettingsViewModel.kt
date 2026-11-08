@@ -3,7 +3,7 @@ package com.lankeshwar.vaultnote.viewmodels.backup
 import android.content.Context
 import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
-import com.lankeshwar.vaultnote.Utils.BackupScheduler
+import com.lankeshwar.vaultnote.Utils.backup_trash.BackupScheduler
 import com.lankeshwar.vaultnote.Utils.ScheduledBackupPasswordStore
 import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.AutomaticBackupFrequency
 import dagger.hilt.android.lifecycle.HiltViewModel
