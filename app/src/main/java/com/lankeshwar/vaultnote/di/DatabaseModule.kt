@@ -2,6 +2,8 @@ package com.lankeshwar.vaultnote.di
 
 import android.content.Context
 import androidx.room.Room
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.lankeshwar.vaultnote.data.repository.NotesRepository
 import com.lankeshwar.vaultnote.data.db.dao.NoteAttachmentDao
 import com.lankeshwar.vaultnote.data.db.dao.NoteDao
@@ -39,7 +41,8 @@ object DatabaseModule {
                 VaultNoteDatabase.MIGRATION_11_12,VaultNoteDatabase.MIGRATION_12_13,
                 VaultNoteDatabase.MIGRATION_13_14,
                 VaultNoteDatabase.MIGRATION_14_15,VaultNoteDatabase.MIGRATION_15_16,
-                VaultNoteDatabase.MIGRATION_16_17,VaultNoteDatabase.MIGRATION_17_18)
+                VaultNoteDatabase.MIGRATION_16_17,VaultNoteDatabase.MIGRATION_17_18,
+                VaultNoteDatabase.MIGRATION_18_19)
             .build()
     }
 
@@ -88,5 +91,17 @@ object DatabaseModule {
     @Provides
     fun provideJournalPhotoDao(database: VaultNoteDatabase): JournalPhotoDao {
         return database.journalPhotosDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth {
+        return FirebaseAuth.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance()
     }
 }

@@ -26,6 +26,7 @@ import com.lankeshwar.vaultnote.data.storage.VoiceRecorder
 import com.lankeshwar.vaultnote.screens.private_note_screen.PrivateNoteSession
 import com.lankeshwar.vaultnote.widget.VaultNoteWidget
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.android.scopes.ViewModelScoped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +37,17 @@ import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.collections.emptyList
 
+enum class NoteSortOption {
+    NEWEST_FIRST,
+    OLDEST_FIRST,
+    TITLE_A_TO_Z,
+    TITLE_Z_TO_A,
+    PINNED_FIRST,
+    FAVORITES_FIRST
+}
+enum class NoteFilterOption {
+    ALL, PINNED, FAVORITES
+}
 @HiltViewModel
 class NotesViewModel @Inject constructor(
     private val repository: NotesRepository,
@@ -48,6 +60,18 @@ class NotesViewModel @Inject constructor(
     val welcomeMessage:String
         get() = repository.getWelcomeMessage()
     private val searchQueryFlow = MutableStateFlow("")
+    private val sortOptionFlow = MutableStateFlow(NoteSortOption.PINNED_FIRST)
+    private val filterOptionFlow = MutableStateFlow(NoteFilterOption.ALL)
+    val selectedSortOption: StateFlow<NoteSortOption> = sortOptionFlow
+    val selectedFilterOption: StateFlow<NoteFilterOption> = filterOptionFlow
+
+    fun updateSortOption(option: NoteSortOption){
+        sortOptionFlow.value = option
+    }
+
+    fun updateFilterOption(option: NoteFilterOption){
+        filterOptionFlow.value = option
+    }
 
     private val attachmentFileManager = AttachmentFileManager(context)
     private val voiceRecorder = VoiceRecorder(context)
@@ -76,35 +100,25 @@ class NotesViewModel @Inject constructor(
         privateNoteSession.lock()
     }
 
-    private val notes = repository.getRegularNotes()
-        .combine(searchQueryFlow){entities, query ->
-            entities.map { entity ->
-                Note(
-                    id = entity.id,
-                    title = entity.title,
-                    preview = entity.preview,
-                    formattedContent = entity.formattedContent,
-                    date = entity.date,
-                    isPrivate = entity.isPrivate,
-                    isPinned = entity.isPinned,
-                    isFavorite = entity.isFavorite,
-                    reminderTime =  entity.reminderTime,
-                    reminderRepeat = entity.reminderRepeat,
-                    isReminderEnabled = entity.isReminderEnabled
-                )
-            }.filter { note ->
-                note.title.contains(query, ignoreCase = true) || note.preview.contains(query, ignoreCase = true)
-            }.sortedWith (
-                compareByDescending<Note> {it.isPinned  }
-                    .thenByDescending { it.id }
-            )
+    private val notes = combine(
+        repository.getRegularNotes(),
+        searchQueryFlow,
+        sortOptionFlow,
+        filterOptionFlow
+    ) { entities, query, sortOption, filterOption ->
 
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = emptyList()
+        filterAndSortNotes(
+            entities = entities,
+            query = query,
+            sortOption = sortOption,
+            filterOption = filterOption
         )
+
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList()
+    )
 
     val recentlyDeletedFlow: StateFlow<List<Note>> =
         repository.getRecentlyDeletedNotes()
@@ -141,30 +155,20 @@ class NotesViewModel @Inject constructor(
             .combine(searchQueryFlow) { entities, query ->
                 entities to query
             }
-            .combine(privateNoteSession.isUnlocked) { (entities, query), isUnlocked ->
+            .combine(sortOptionFlow) { (entities, query), sortOption ->
+                Triple(entities, query, sortOption)
+            }
+            .combine(filterOptionFlow) { (entities, query, sortOption), filterOption ->
 
-                if (!isUnlocked) {
-                    emptyList()
-                } else {
-                    entities.map { entity ->
-                        Note(
-                            id = entity.id,
-                            title = entity.title,
-                            preview = entity.preview,
-                            formattedContent = entity.formattedContent,
-                            date = entity.date,
-                            isPrivate = entity.isPrivate,
-                            isFavorite = entity.isFavorite,
-                            isPinned = entity.isPinned,
-                            reminderTime = entity.reminderTime,
-                            reminderRepeat = entity.reminderRepeat,
-                            isReminderEnabled = entity.isReminderEnabled
-                        )
-                    }.filter { note ->
-                        note.title.contains(query, ignoreCase = true) ||
-                                note.preview.contains(query, ignoreCase = true)
-                    }
-                }
+                filterAndSortNotes(
+                    entities = entities,
+                    query = query,
+                    sortOption = sortOption,
+                    filterOption = filterOption
+                )
+            }
+            .combine(privateNoteSession.isUnlocked) { filteredNotes, isUnlocked ->
+                if (isUnlocked) filteredNotes else emptyList()
             }
             .stateIn(
                 viewModelScope,
@@ -172,12 +176,16 @@ class NotesViewModel @Inject constructor(
                 emptyList()
             )
 
-
     val notesFlow = notes
-    fun updateSearchQuery(query: String){
+
+    fun updateSearchQuery(query: String) {
         searchQuery = query
         searchQueryFlow.value = query
     }
+
+
+
+
 
     fun addNote(title: String, content: String, isPrivate: Boolean = false, formattedContent: String = content,
                 onNoteSaved: ((Long)-> Unit)? = null, onComplete: (() -> Unit)? = null){
@@ -216,6 +224,7 @@ class NotesViewModel @Inject constructor(
         if(title.isBlank() && content.isBlank()) return
 
         viewModelScope.launch {
+            val existingNote = repository.getNoteById(note.id) ?: return@launch
             repository.updateNote(
                 NoteEntity(
                     id = note.id,
@@ -228,7 +237,13 @@ class NotesViewModel @Inject constructor(
                     isFavorite = note.isFavorite,
                     reminderTime =  note.reminderTime,
                     reminderRepeat = note.reminderRepeat,
-                    isReminderEnabled = note.isReminderEnabled
+                    isReminderEnabled = note.isReminderEnabled,
+                    updatedAt = System.currentTimeMillis(),
+                    cloudId = existingNote.cloudId,
+                    cloudOwnerId = existingNote.cloudOwnerId,
+                    lastSyncedAt = existingNote.lastSyncedAt,
+                    isCloudDeleted = existingNote.isCloudDeleted,
+                    deletedAt = existingNote.deletedAt
                 )
             )
             VaultNoteWidget().updateAll(context)
@@ -291,8 +306,8 @@ class NotesViewModel @Inject constructor(
                 attachmentRepository.deleteAttachmentForNote(note.id)
 
                 // Finally, permanently delete the note.
-                repository.permanentlyDeleteNote(note.id)
-
+//                repository.permanentlyDeleteNote(note.id)
+                repository.markNoteAsCloudDeleted(note.id)
                 VaultNoteWidget().updateAll(context)
 
             } catch (e: Exception) {
@@ -598,4 +613,45 @@ class NotesViewModel @Inject constructor(
             repository.disableOneTimeReminder(noteId)
         }
     }
+
+    private fun filterAndSortNotes(entities:List<NoteEntity>,
+                                   query: String, sortOption: NoteSortOption,
+                                    filterOption: NoteFilterOption
+                                   ): List<Note>{
+
+        return entities.map{entity ->
+            Note(id = entity.id,
+                title = entity.title, preview = entity.preview, formattedContent = entity.formattedContent,
+                date = entity.date, isPrivate = entity.isPrivate, isPinned = entity.isPinned,
+                isFavorite = entity.isFavorite, reminderTime = entity.reminderTime,
+                isReminderEnabled = entity.isReminderEnabled,
+                reminderRepeat = entity.reminderRepeat
+            )
+        }
+            .filter { note ->
+                query.isBlank()|| note.title.contains(query, ignoreCase = true) ||
+                        note.preview.contains(query, ignoreCase = true) ||
+                        note.formattedContent.contains(query, ignoreCase = true)
+            }
+            .filter { note ->
+                when(filterOption){
+                    NoteFilterOption.ALL -> true
+                    NoteFilterOption.PINNED -> note.isPinned
+                    NoteFilterOption.FAVORITES -> note.isFavorite
+                }
+            }.let { filterNotes ->
+                when(sortOption){
+                    NoteSortOption.NEWEST_FIRST -> filterNotes.sortedByDescending { it.id }
+                    NoteSortOption.OLDEST_FIRST -> filterNotes.sortedBy { it.id }
+                    NoteSortOption.TITLE_A_TO_Z -> filterNotes.sortedBy { it.title.lowercase() }
+                    NoteSortOption.TITLE_Z_TO_A -> filterNotes.sortedByDescending { it.title.lowercase() }
+                    NoteSortOption.PINNED_FIRST -> filterNotes.sortedWith(compareByDescending<Note> {it.isPinned}
+                        .thenByDescending { it.id })
+
+                    NoteSortOption.FAVORITES_FIRST -> filterNotes.sortedWith(compareByDescending<Note> {it.isFavorite}
+                        .thenByDescending { it.id })
+                }
+            }
+    }
+
 }

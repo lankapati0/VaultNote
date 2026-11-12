@@ -22,10 +22,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.lankeshwar.vaultnote.screens.MainScreen
+import com.lankeshwar.vaultnote.screens.SplashScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
 import com.lankeshwar.vaultnote.theme.ThemePreferences
 import com.lankeshwar.vaultnote.ui.theme.VaultNoteTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
+
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     private val notificationNoteId = mutableIntStateOf(-1)
@@ -43,12 +47,18 @@ class MainActivity : FragmentActivity() {
     @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         notificationNoteId.intValue = intent.getIntExtra("noteId",-1)
         widgetTaskId.intValue = intent.getIntExtra("taskId",-1)
         openCreateNote.value = intent.getBooleanExtra("openCreateNote", false)
         setContent {
             val context = LocalContext.current
+            var showSplash by remember { mutableStateOf(true) }
 
+            LaunchedEffect(Unit) {
+                delay(2000.milliseconds)
+                showSplash = false
+            }
             var selectTheme by remember {
                 mutableStateOf(ThemePreferences.getTheme(context))
             }
@@ -73,27 +83,30 @@ class MainActivity : FragmentActivity() {
             }
 
             VaultNoteTheme(darkTheme = darkTheme) {
-                MainScreen(
-                    selectTheme = selectTheme,
-                    onThemeChange = {theme ->
-                        ThemePreferences.saveTheme(context, theme)
-                        selectTheme = theme
-                    },
-                    notificationNoteId = notificationNoteId.intValue.takeIf { it != -1 },
-                    onNotificationHandled = {
-                        notificationNoteId.intValue = -1
-                    },
-                    widgetTaskId = widgetTaskId.intValue.takeIf { it != -1 },
-                    onWidgetTaskHandled = {
-                        widgetTaskId.intValue = -1
-                    },
-                    openCreateNote = openCreateNote.value,
-                    onCreateNoteHandled = {
-                        openCreateNote.value = false
-                    }
-                )
+                if (showSplash) {
+                    SplashScreen()
+                } else {
+                    MainScreen(
+                        selectTheme = selectTheme,
+                        onThemeChange = {theme ->
+                            ThemePreferences.saveTheme(context, theme)
+                            selectTheme = theme
+                        },
+                        notificationNoteId = notificationNoteId.intValue.takeIf { it != -1 },
+                        onNotificationHandled = {
+                            notificationNoteId.intValue = -1
+                        },
+                        widgetTaskId = widgetTaskId.intValue.takeIf { it != -1 },
+                        onWidgetTaskHandled = {
+                            widgetTaskId.intValue = -1
+                        },
+                        openCreateNote = openCreateNote.value,
+                        onCreateNoteHandled = {
+                            openCreateNote.value = false
+                        }
+                    )
+                }
             }
-
         }
     }
 }

@@ -43,7 +43,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.lankeshwar.vaultnote.Utils.Routes
-import com.lankeshwar.vaultnote.Utils.backup_trash.TrashCleanupScheduler
 import com.lankeshwar.vaultnote.data.Note
 import com.lankeshwar.vaultnote.data.db.entity.JournalEntity
 import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
@@ -51,6 +50,7 @@ import com.lankeshwar.vaultnote.data.model.JournalTemplate
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppInfoScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.AppLockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.ChangePinScreen
+import com.lankeshwar.vaultnote.screens.SettingSecurity.CloudSyncScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.FingerprintUnlockScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.PrivacySecurityScreen
 import com.lankeshwar.vaultnote.screens.SettingSecurity.RecentlyDeletedScreen
@@ -64,6 +64,8 @@ import com.lankeshwar.vaultnote.screens.SettingSecurity.backup.TrashRetentionSet
 import com.lankeshwar.vaultnote.screens.journal.JournalEditorScreen
 import com.lankeshwar.vaultnote.screens.journal.JournalScreen
 import com.lankeshwar.vaultnote.screens.journal.JournalTemplateScreen
+import com.lankeshwar.vaultnote.screens.onboard.LoginScreen
+import com.lankeshwar.vaultnote.screens.onboard.RegisterScreen
 import com.lankeshwar.vaultnote.screens.tasks.TaskEditorScreen
 import com.lankeshwar.vaultnote.screens.tasks.TaskListScreen
 import com.lankeshwar.vaultnote.theme.AppTheme
@@ -423,7 +425,9 @@ fun MainScreen(selectTheme: AppTheme? = null,
         NavHost(
             navController = navController,
             startDestination = Routes.NOTES,
-            modifier = Modifier.padding(innerPadding).fillMaxSize()
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
         ) {
             composable(route = Routes.NOTES) {
                 NotesScreen(
@@ -690,6 +694,9 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     },
                     onBackupClick = {
                         navController.navigate(Routes.BACKUP_RESTORE)
+                    },
+                    onCloudSyncClick = {
+                        navController.navigate(Routes.CLOUD_SYNC)
                     }
                 )
             }
@@ -734,9 +741,6 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     onRetentionDaysChange = {days ->
                         trashRetentionViewModel.updateRetentionDays(days)
                     },
-                    onRunCleanupNow = {
-                        TrashCleanupScheduler.runNow(context)
-                    }
                 )
             }
 
@@ -757,6 +761,44 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     },
                     onFrequencyChange = {frequency ->
                         backupSettingsViewModel.updateFrequency(frequency)
+                    }
+                )
+            }
+
+            composable(Routes.CLOUD_SYNC){
+                CloudSyncScreen(
+                    onLoginClick = {
+                        navController.navigate(Routes.LOGIN)
+                    },
+                    onRegisterClick = {
+                        navController.navigate(Routes.REGISTER)
+                    },
+                )
+            }
+
+            composable(Routes.LOGIN){
+                LoginScreen(
+                    onRegisterClick = {
+                        navController.navigate(Routes.REGISTER)
+                    },
+                    onLoginSuccess = {
+                        navController.popBackStack(
+                            Routes.CLOUD_SYNC,
+                            inclusive = false
+                        )
+                    }
+                )
+            }
+
+            composable(Routes.REGISTER){
+                RegisterScreen(
+                    onRegisterSuccess = {
+                        navController.popBackStack(Routes.CLOUD_SYNC,inclusive = false)
+                    },
+                    onLoginClick = {
+                        navController.navigate(Routes.LOGIN) {
+                            popUpTo(Routes.CLOUD_SYNC)
+                        }
                     }
                 )
             }

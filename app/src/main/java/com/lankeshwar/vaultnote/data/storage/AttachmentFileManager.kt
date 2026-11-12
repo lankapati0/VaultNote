@@ -4,11 +4,15 @@ import android.content.Context
 import android.net.Uri
 import android.webkit.MimeTypeMap
 import com.lankeshwar.vaultnote.Utils.PrivateAttachmentEncryptionManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class AttachmentFileManager(context: Context){
+@Singleton
+class AttachmentFileManager @Inject constructor(@ApplicationContext context: Context){
 
     private val appContext = context.applicationContext
 

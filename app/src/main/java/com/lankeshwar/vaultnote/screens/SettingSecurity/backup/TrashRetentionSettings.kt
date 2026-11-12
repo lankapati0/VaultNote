@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 fun TrashRetentionSettings(
     selectedRetentionDays:Int,
     onRetentionDaysChange:(Int) -> Unit,
-    onRunCleanupNow: ()-> Unit
 ) {
     val retentionOptions = listOf(
         7 to "7 days",

@@ -33,6 +33,7 @@ class NoteAttachmentRepository @Inject constructor(private val noteAttachmentDao
         noteAttachmentDao.deleteAttachmentsForNote(noteId)
     }
 
+
     suspend fun getAllPrivateNoteAttachments(): List<NoteAttachmentEntity>{
         return noteAttachmentDao.getAllPrivateNoteAttachments()
     }

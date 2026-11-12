@@ -19,11 +19,12 @@ import com.lankeshwar.vaultnote.data.db.entity.TagEntity
 import com.lankeshwar.vaultnote.data.db.entity.TaskEntity
 import com.lankeshwar.vaultnote.data.model.JournalPhotoDao
 import com.lankeshwar.vaultnote.data.model.JournalPhotoEntity
+import java.util.UUID
 
 @Database(
     entities = [NoteEntity::class, TagEntity::class, NoteTagCrossRef::class, NoteDraftEntity::class, NoteAttachmentEntity::class, TaskEntity::class,
         JournalEntity::class, JournalPhotoEntity::class],
-    version = 18,
+    version = 19,
     exportSchema = false
 )
 abstract class VaultNoteDatabase: RoomDatabase() {
@@ -299,6 +300,141 @@ abstract class VaultNoteDatabase: RoomDatabase() {
                 )
             }
         }
+
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+
+            override fun migrate(db: SupportSQLiteDatabase) {
+
+                // 1. NOTES
+                db.execSQL("ALTER TABLE notes ADD COLUMN cloudId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE notes ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN cloudOwnerId TEXT")
+                db.execSQL("ALTER TABLE notes ADD COLUMN isCloudDeleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN lastSyncedAt INTEGER")
+
+                // 2. TASKS
+                db.execSQL("ALTER TABLE tasks ADD COLUMN cloudId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN cloudOwnerId TEXT")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN isCloudDeleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tasks ADD COLUMN lastSyncedAt INTEGER")
+
+                // 3. JOURNAL ENTRIES
+                db.execSQL("ALTER TABLE journal_entries ADD COLUMN cloudId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE journal_entries ADD COLUMN cloudOwnerId TEXT")
+                db.execSQL("ALTER TABLE journal_entries ADD COLUMN isCloudDeleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE journal_entries ADD COLUMN lastSyncedAt INTEGER")
+
+                // 4. TAGS
+                db.execSQL("ALTER TABLE tags ADD COLUMN cloudId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE tags ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tags ADD COLUMN cloudOwnerId TEXT")
+                db.execSQL("ALTER TABLE tags ADD COLUMN isCloudDeleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tags ADD COLUMN lastSyncedAt INTEGER")
+
+                // 5. NOTE ATTACHMENTS
+                db.execSQL("ALTER TABLE note_attachments ADD COLUMN cloudId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE note_attachments ADD COLUMN cloudOwnerId TEXT")
+                db.execSQL("ALTER TABLE note_attachments ADD COLUMN remoteStoragePath TEXT")
+                db.execSQL("ALTER TABLE note_attachments ADD COLUMN isCloudDeleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE note_attachments ADD COLUMN lastSyncedAt INTEGER")
+
+                // 6. JOURNAL PHOTOS
+                db.execSQL("ALTER TABLE journal_photos ADD COLUMN cloudId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE journal_photos ADD COLUMN cloudOwnerId TEXT")
+                db.execSQL("ALTER TABLE journal_photos ADD COLUMN remoteStoragePath TEXT")
+                db.execSQL("ALTER TABLE journal_photos ADD COLUMN isCloudDeleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE journal_photos ADD COLUMN lastSyncedAt INTEGER")
+
+                // 7. NOTE-TAG RELATIONSHIPS
+                db.execSQL("ALTER TABLE note_tag_cross_ref ADD COLUMN cloudId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE note_tag_cross_ref ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE note_tag_cross_ref ADD COLUMN cloudOwnerId TEXT")
+                db.execSQL("ALTER TABLE note_tag_cross_ref ADD COLUMN isCloudDeleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE note_tag_cross_ref ADD COLUMN lastSyncedAt INTEGER")
+
+
+                // Generate a different UUID for every existing row.
+                fun populateCloudIds(
+                    tableName: String,
+                    keyColumns: List<String>
+                ) {
+                    val selectedColumns = keyColumns.joinToString(", ")
+                    val whereClause = keyColumns.joinToString(" AND ") {
+                        "$it = ?"
+                    }
+
+                    db.query(
+                        "SELECT $selectedColumns FROM $tableName"
+                    ).use { cursor ->
+
+                        while (cursor.moveToNext()) {
+
+                            val whereArgs = keyColumns.mapIndexed { index, _ ->
+                                cursor.getInt(index)
+                            }
+
+                            val updateArgs = mutableListOf<Any>(
+                                UUID.randomUUID().toString())
+                            updateArgs.addAll(whereArgs)
+
+                            db.execSQL(
+                                "UPDATE $tableName SET cloudId = ? WHERE $whereClause",
+                                updateArgs.toTypedArray()
+                            )
+                        }
+                    }
+                }
+
+                populateCloudIds("notes", listOf("id"))
+                populateCloudIds("tasks", listOf("id"))
+                populateCloudIds("journal_entries", listOf("id"))
+                populateCloudIds("tags", listOf("id"))
+                populateCloudIds("note_attachments", listOf("id"))
+                populateCloudIds("journal_photos", listOf("id"))
+
+                populateCloudIds(
+                    "note_tag_cross_ref",
+                    listOf("noteId", "tagId")
+                )
+
+
+                // Create unique cloud ID indexes.
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_notes_cloudId ON notes(cloudId)"
+                )
+
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_tasks_cloudId ON tasks(cloudId)"
+                )
+
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_journal_entries_cloudId ON journal_entries(cloudId)"
+                )
+
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_tags_cloudId ON tags(cloudId)"
+                )
+
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_note_attachments_cloudId ON note_attachments(cloudId)"
+                )
+
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_journal_photos_cloudId ON journal_photos(cloudId)"
+                )
+
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_note_tag_cross_ref_cloudId ON note_tag_cross_ref(cloudId)"
+                )
+            }
+        }
+
+
+
+
+
+
     }
 
     suspend fun permanentlyDeleteNoteWithAttachments(noteId:Int){

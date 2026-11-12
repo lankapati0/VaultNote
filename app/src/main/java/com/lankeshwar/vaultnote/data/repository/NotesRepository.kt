@@ -50,6 +50,10 @@ class NotesRepository @Inject constructor(
         noteDao.updateNote(noteToSave)
     }
 
+    suspend fun getNoteById(noteId: Int): NoteEntity? {
+        return noteDao.getNoteById(noteId)
+    }
+
     fun getRegularNotes(): Flow<List<NoteEntity>> {
         return noteDao.getRegularNotes()
     }
@@ -135,6 +139,10 @@ class NotesRepository @Inject constructor(
         noteDao.permanentlyDeleteNote(noteId)
     }
 
+    suspend fun markNoteAsCloudDeleted(noteId:Int){
+        noteDao.markNoteAsCloudDeleted(noteId)
+    }
+
     suspend fun updateReminder(noteId:Int, reminderTime:Long?, reminderRepeat:String, isEnabled:Boolean){
         noteDao.updateReminder(noteId,reminderTime,reminderRepeat,isEnabled)
     }
@@ -142,6 +150,8 @@ class NotesRepository @Inject constructor(
     suspend fun disableOneTimeReminder(noteId:Int){
         noteDao.disableOneTimeReminder(noteId)
     }
+
+
 
     private fun encryptPrivateNote(note: NoteEntity): NoteEntity{
         if(!note.isPrivate) return note

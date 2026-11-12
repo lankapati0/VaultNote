@@ -3,7 +3,10 @@ package com.lankeshwar.vaultnote.data.db.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.ColumnInfo
-@Entity(tableName = "notes")
+import androidx.room.Index
+import java.util.UUID
+
+@Entity(tableName = "notes", indices = [Index(value = ["cloudId"], unique = true)])
 data class NoteEntity(
     @PrimaryKey(autoGenerate = true)
     val id:Int=0,
@@ -28,5 +31,13 @@ data class NoteEntity(
     @ColumnInfo(defaultValue = "0")
     val isReminderEnabled: Boolean = false,
     @ColumnInfo(defaultValue = "NULL")
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    @ColumnInfo(defaultValue = "")
+    val cloudId: String = UUID.randomUUID().toString(),
+    @ColumnInfo(defaultValue = "0")
+    val updatedAt: Long = System.currentTimeMillis(),
+    val cloudOwnerId:String? = null,
+    val lastSyncedAt:Long? = null,
+    @ColumnInfo(defaultValue = "0")
+    val isCloudDeleted: Boolean = false
 )

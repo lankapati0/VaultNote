@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "390755790769",
+    "project_id": "vaultnote-e95ca",
+    "storage_bucket": "vaultnote-e95ca.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:390755790769:android:1fbd5edd119ae04e14d790",
+        "android_client_info": {
+          "package_name": "com.lankeshwar.vaultnote"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAihRNvfmA1f-t6d4dtRebnYyF7FlfpWeA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

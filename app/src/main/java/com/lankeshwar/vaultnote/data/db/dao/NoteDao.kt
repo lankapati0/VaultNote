@@ -54,6 +54,9 @@ interface NoteDao {
     @Query("DELETE FROM notes WHERE id = :noteId")
     suspend fun permanentlyDeleteNote(noteId: Int)
 
+    @Query(""" UPDATE notes SET isCloudDeleted = 1, isDeleted = 1, deletedAt = :deletedAt, updatedAt = :updatedAt WHERE id = :noteId""")
+    suspend fun markNoteAsCloudDeleted(noteId: Int,deletedAt:Long= System.currentTimeMillis(),updatedAt:Long = System.currentTimeMillis())
+
     @Query("SELECT * FROM notes WHERE isDeleted = 1 ORDER BY id DESC")
     fun getRecentlyDeletedNotes(): Flow<List<NoteEntity>>
 
@@ -70,4 +73,25 @@ interface NoteDao {
 
     @Query("""SELECT * FROM notes WHERE isDeleted = 1 AND deletedAt IS NOT NULL AND deletedAt <= :cutoffTime""")
     suspend fun getExpiredDeletedNotes(cutoffTime:Long): List<NoteEntity>
+
+    @Query("""SELECT * FROM notes WHERE isPrivate = 0 AND isCloudDeleted = 0 AND ( lastSyncedAt IS NULL OR updatedAt > lastSyncedAt)""")
+    suspend fun getPublicNotesForCloudSync(): List<NoteEntity>
+
+    @Query(""" SELECT * FROM notes WHERE isPrivate = 0 AND isCloudDeleted = 1 AND cloudOwnerId = :userId AND ( lastSyncedAt IS NULL OR updatedAt > lastSyncedAt)""")
+    suspend fun getPublicNotesPendingCloudDeletion(userId: String):List<NoteEntity>
+
+    @Query(""" SELECT * FROM notes WHERE cloudId = :cloudId LIMIT 1""")
+    suspend fun getNoteByCloudId(cloudId: String): NoteEntity?
+
+    @Query(""" UPDATE notes SET cloudOwnerId = :userId WHERE cloudId = :cloudId AND (cloudOwnerId IS NULL OR cloudOwnerId = :userId)""")
+    suspend fun assignNoteCloudOwner(cloudId: String, userId: String): Int
+
+    @Query("""UPDATE notes SET lastSyncedAt = :syncedAt WHERE cloudId IN (:cloudId) AND cloudOwnerId = :userId""")
+    suspend fun updateNoteLastSyncedAt(cloudId: List<String>, userId: String, syncedAt: Long): Int
+
+    @Query(""" UPDATE notes SET lastSyncedAt = :syncedAt WHERE cloudId IN (:cloudIds) AND cloudOwnerId = :userId""")
+    suspend fun updateNotesLastSyncedAt(cloudIds: String, userId: String,syncedAt: Long): Int
+
+    @Query("SELECT * FROM notes WHERE id = :noteId LIMIT 1")
+    suspend fun getNoteById(noteId:Int): NoteEntity?
 }

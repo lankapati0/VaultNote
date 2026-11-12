@@ -2,6 +2,7 @@ package com.lankeshwar.vaultnote.screens
 
 import android.app.AlertDialog
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -34,7 +37,8 @@ fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
                    onAboutClick:()-> Unit,
                    onRecentlyDeletedClick: () -> Unit,
                    onManageTagsClick:()-> Unit,
-                   onBackupClick:()-> Unit) {
+                   onBackupClick:()-> Unit,
+                   onCloudSyncClick:()-> Unit) {
 
     var showAppearanceDialog by remember {
         mutableStateOf(false)
@@ -43,18 +47,9 @@ fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(20.dp)
     ) {
-/*
-        Text(
-            text = "Settings",
-            style = MaterialTheme.typography.headlineMedium
-        )
-*/
-/*
-
-        Spacer(modifier = Modifier.height(24.dp))
-*/
 
         Text(
             text = "General",
@@ -112,6 +107,13 @@ fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
             icon = "💾",
             onClick = onBackupClick
         )
+        Spacer(modifier = Modifier.height(12.dp))
+        SettingsItem(
+            title = "Cloud Sync",
+            subtitle = "Sync your notes securely across devices",
+            icon = "☁\uFE0F",
+            onClick = onCloudSyncClick
+        )
     }
 
     if(showAppearanceDialog){
@@ -157,9 +159,8 @@ fun SettingsScreen(onThemeChange:(AppTheme) -> Unit,
                     Text("Close")
                 }
             }
-            )
+        )
     }
-
 }
 
 @Composable
@@ -192,7 +193,6 @@ fun SettingsItem(title: String, subtitle: String, icon: String, onClick:()-> Uni
             Text(
                 text= ">",
                 style = MaterialTheme.typography.headlineMedium
-
             )
         }
     }
