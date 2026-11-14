@@ -21,6 +21,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {
@@ -68,7 +71,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation("androidx.hilt:hilt-work:1.4.0")
     implementation("androidx.core:core-splashscreen:1.2.0")
-
+    implementation("dev.ffmpegkit-maintained:tesseract-android:5.5.0")
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

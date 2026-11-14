@@ -2,16 +2,19 @@ package com.lankeshwar.vaultnote.screens
 
 import android.Manifest
 import android.app.DatePickerDialog
+import android.app.Dialog
 import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.net.Uri
 import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -58,14 +61,25 @@ import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.clip
 import androidx.core.content.ContextCompat
 import com.lankeshwar.vaultnote.Utils.FileUtils
+import com.lankeshwar.vaultnote.Utils.ocr.OcrLanguageManager
+import com.lankeshwar.vaultnote.Utils.ocr.OcrTextExtractor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -86,15 +100,21 @@ fun CreateNoteScreen(
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf(TextFieldValue("")) }
     var markdownMode by remember { mutableStateOf(false) }
-
+    val scope = rememberCoroutineScope()
     var reminderTime by remember { mutableStateOf<Long?>(null) }
     var reminderRepeat by remember { mutableStateOf("NONE") }
     var reminderEnabled by remember { mutableStateOf(false) }
-
+    var isDiscarding by remember { mutableStateOf(false) }
     val reminderDateText = reminderTime?.let {time ->
         SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(time)
     } ?: "No reminder set"
 
+    val ocrTextExtractor = remember { OcrTextExtractor(context) }
+    val ocrLanguageManager = remember { OcrLanguageManager() }
+    var isDownloadingLanguage by remember { mutableStateOf(false) }
+
+    var isExtractingText by remember { mutableStateOf(false) }
+    var ocrProgress by remember { mutableFloatStateOf(0f) }
     var isDraftLoaded by remember { mutableStateOf(false) }
 
     var selectedImageUris by remember {
@@ -209,7 +229,7 @@ fun CreateNoteScreen(
     }
 
     LaunchedEffect(title,content,markdownMode,isDraftLoaded) {
-        if(!isDraftLoaded) return@LaunchedEffect
+        if(!isDraftLoaded || isDiscarding) return@LaunchedEffect
 
         if(title.isBlank() && content.text.isBlank()){
             autoSaveStatus = ""
@@ -572,6 +592,81 @@ fun CreateNoteScreen(
             ) {
                 Text("🖼 Attach Images")
             }
+
+      /*      OutlinedButton(
+                onClick = {
+                    val uri = selectedImageUris.lastOrNull()
+                    if(uri == null){
+                        Toast.makeText(context, "Please attach an image first",Toast.LENGTH_SHORT).show()
+                    } else {
+                        isExtractingText = true
+                        ocrProgress = 0f
+                        scope.launch {
+                            try {
+                                val extractedText = ocrTextExtractor.extractText(uri){progress ->
+                                    scope.launch(Dispatchers.Main){
+                                        ocrProgress = progress.toFloat()
+                                    }
+                                }
+                                ocrTextExtractor.testEnglishOcr(uri)
+                                if(extractedText.isNotBlank()) {
+                                    val builder = AnnotatedString.Builder(content.annotatedString)
+                                    builder.append("\n\n")
+                                    builder.append(extractedText)
+                                    val updatedText = builder.toAnnotatedString()
+
+                                    content = content.copy(
+                                        annotatedString = updatedText,
+                                        selection = TextRange(updatedText.length)
+                                    )
+                                } else {
+                                    Toast.makeText(context, "No text found in the image", Toast.LENGTH_SHORT).show()
+                                }
+                            }catch (e: Exception){
+                                Toast.makeText(
+                                    context, "Text extraction failed:${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                isExtractingText = false
+                            }
+                        }
+                    }
+                },
+                enabled = !isExtractingText
+            ) {
+                Text(if(isExtractingText) "Extracting..." else "Extract Text")
+            }*/
+
+/*            OutlinedButton(
+                onClick = {
+                    isDownloadingLanguage = true
+                    scope.launch {
+                        try {
+                            val success = ocrLanguageManager.downloadLanguage(context, language = "guj")
+                            Toast.makeText(context,
+                                if (success) {
+                                    "Gujarati language model installed"
+                                } else {
+                                    "Gujarati model download failed"
+                                }, Toast.LENGTH_LONG).show()
+                        }catch (e: Exception){
+                            Toast.makeText(context, "Download failed: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                        } finally {
+                            isDownloadingLanguage = false
+                        }
+                    }
+                },
+                enabled = !isDownloadingLanguage
+            ) {
+                Text(
+                    if(isDownloadingLanguage){
+                        "Downloading..."
+                    } else {
+                        "Download OCR"
+                    }
+                )
+            }*/
+
+
             OutlinedButton(
                 onClick = {
                     documentPickerLauncher.launch("*/*")
@@ -675,9 +770,13 @@ fun CreateNoteScreen(
                     Image(
                         bitmap = bitmap.asImageBitmap(),
                         contentDescription = "Selected attachment",
-                        modifier = Modifier.height(100.dp),
-                        contentScale = ContentScale.Fit
+                        contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                .height(100.dp)
+                            .clip(RoundedCornerShape(12.dp)),
                     )
+
+
                 }
             }
         }
@@ -764,10 +863,50 @@ fun CreateNoteScreen(
         }
 
         Button(
-            onClick = onCancel,
+            onClick = {
+                isDiscarding = true
+                onClearDraft()
+                onCancel()
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Cancel")
         }
+
+        if(isExtractingText){
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = {}
+            ){
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 8.dp
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ){
+                        CircularProgressIndicator(progress = {ocrProgress/100})
+                        Text(
+                            text = "Extracting text, please wait...",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        Text(
+                            text = "Downloading language models or processing your image.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${ocrProgress.toInt()}%",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+            }
+        }
+
     }
 }
