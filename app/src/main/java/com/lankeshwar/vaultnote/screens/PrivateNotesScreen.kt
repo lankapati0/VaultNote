@@ -1,6 +1,7 @@
 package com.lankeshwar.vaultnote.screens
 
 import android.os.Build
+import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
@@ -118,24 +119,14 @@ fun PrivateNotesScreen(
                 appLockEnabled = AppLockPreferences.isAppLockEnabled(context)
             }
 
-            if(event == Lifecycle.Event.ON_STOP){
-                if(AppLockPreferences.isAppLockEnabled(context)){
-                    notesViewModel.lockPrivateNotes()
-                    isDecoyUnlocked = false
-                    isUnlocked = false
-                    pin = ""
-                    confirmPin = ""
-
-                }
-            }
 
         }
+
         lifecycleOwner.lifecycle.addObserver (observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             isUnlocked = false
             isDecoyUnlocked = false
-            notesViewModel.lockPrivateNotes()
             pin = ""
             confirmPin = ""
         }

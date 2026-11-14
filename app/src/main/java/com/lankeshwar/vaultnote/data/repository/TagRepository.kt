@@ -55,4 +55,8 @@ class TagRepository @Inject constructor(
         return tagDao.getTagsForNote(noteId)
     }
 
+    suspend fun getAllNoteTagCrossRefs(): List<NoteTagCrossRef>{
+        return tagDao.getAllNoteTagCrossRefs()
+    }
+
 }

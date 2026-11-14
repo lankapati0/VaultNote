@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,13 +62,16 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.lankeshwar.vaultnote.Utils.AudioPlayerUtils
 import com.lankeshwar.vaultnote.Utils.PrivateAttachmentEncryptionManager
 import com.lankeshwar.vaultnote.Utils.RichTextUtils
+import com.lankeshwar.vaultnote.data.Note
 import com.lankeshwar.vaultnote.data.storage.AttachmentFileManager
 import com.lankeshwar.vaultnote.viewmodels.NoteAttachmentViewModel
+import com.lankeshwar.vaultnote.viewmodels.NotesViewModel
 import com.lankeshwar.vaultnote.viewmodels.TagViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.collections.forEach
 
 @SuppressLint("QueryPermissionsNeeded")
 @Composable
@@ -76,13 +81,19 @@ fun NoteDetailScreen(
     content: String,
     formattedContent: String,
     date: String,
+    notesViewModel: NotesViewModel,
     isPrivate:Boolean = false,
     onBack:() -> Unit,
     onShare: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onRelatedNoteClick:(Note)-> Unit
 ){
     val tagViewModel: TagViewModel = hiltViewModel()
+    val relatedNotesFlow = remember(noteId,isPrivate){
+        notesViewModel.getRelatedNotes(noteId,isPrivate)
+    }
+    val relatedNotes by relatedNotesFlow.collectAsState(initial = emptyList())
     val context = LocalContext.current
     val attachmentFileManager = remember(context){ AttachmentFileManager(context) }
     val attachmentViewModel: NoteAttachmentViewModel = hiltViewModel()
@@ -525,6 +536,49 @@ fun NoteDetailScreen(
                     }
                 }
             )
+        }
+
+        if(relatedNotes.isNotEmpty()){
+            HorizontalDivider()
+            Text(
+                text = "Related Notes",
+                style = MaterialTheme.typography.titleMedium
+            )
+            relatedNotes.forEach { relatedNote ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onRelatedNoteClick(relatedNote)
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 2.dp
+                    ),
+                    content = {
+                        Column(
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            Text(
+                                text = relatedNote.title.ifBlank { "Untitled Note" },
+                                style = MaterialTheme.typography.titleSmall
+                            )
+
+                            if (relatedNote.preview.isNotBlank()) {
+                                Text(
+                                    text = relatedNote.preview,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2
+                                )
+                            }
+                        }
+                    }
+                )
+            }
         }
     }
     Spacer(modifier = Modifier.padding(top = 16.dp))

@@ -1,5 +1,6 @@
 package com.lankeshwar.vaultnote.data.repository
 
+import android.util.Log
 import com.lankeshwar.vaultnote.Utils.PrivateNoteEncryptionManager
 import com.lankeshwar.vaultnote.data.db.dao.NoteDao
 import com.lankeshwar.vaultnote.data.db.entity.NoteEntity
@@ -60,6 +61,42 @@ class NotesRepository @Inject constructor(
 
     suspend fun isPrivateNote(noteId: Int): Boolean?{
         return noteDao.isPrivateNote(noteId)
+    }
+
+    fun getNotesForRelatedNotes(isPrivate:Boolean):Flow<List<NoteEntity>>{
+        return if(!isPrivate){
+            noteDao.getNotesForRelatedNotes(false)
+        } else {
+            combine(noteDao.getNotesForRelatedNotes(true), privateNoteSession.isUnlocked){ entities, isUnlocked ->
+                Log.d(
+                    "RelatedNotes",
+                    "Repository: isUnlocked=$isUnlocked, DatabaseNotes=${entities.size}"
+                )
+                if(!isUnlocked){
+                    emptyList()
+                } else {
+                    entities.map { note ->
+                        note.copy(
+                            title = if(PrivateNoteEncryptionManager.isEncrypted(note.title)){
+                                PrivateNoteEncryptionManager.decrypt(note.title)
+                            } else {
+                                note.title
+                            },
+                            preview = if(PrivateNoteEncryptionManager.isEncrypted(note.preview)){
+                                PrivateNoteEncryptionManager.decrypt(note.preview)
+                            } else {
+                                note.preview
+                            },
+                            formattedContent = if(PrivateNoteEncryptionManager.isEncrypted(note.formattedContent)){
+                                PrivateNoteEncryptionManager.decrypt(note.formattedContent)
+                            } else {
+                                note.formattedContent
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
     fun getPrivateNotes(): Flow<List<NoteEntity>> {
         return combine(

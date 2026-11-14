@@ -26,6 +26,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE isPrivate = 0 AND isDeleted = 0 ORDER BY id DESC")
     fun getRegularNotes(): Flow<List<NoteEntity>>
 
+    @Query(""" SELECT * FROM notes WHERE isPrivate = :isPrivate AND isDeleted = 0 ORDER BY id DESC""")
+    fun getNotesForRelatedNotes(isPrivate:Boolean): Flow<List<NoteEntity>>
+
     @Query("SELECT * FROM notes WHERE isPrivate = 1 AND isDeleted = 0 ORDER BY id DESC")
     fun getPrivateNotes(): Flow<List<NoteEntity>>
 

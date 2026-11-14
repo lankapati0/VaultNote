@@ -21,6 +21,7 @@ import com.lankeshwar.vaultnote.data.repository.NoteDraftRepository
 import com.lankeshwar.vaultnote.data.db.entity.NoteAttachmentEntity
 import com.lankeshwar.vaultnote.data.db.entity.NoteDraftEntity
 import com.lankeshwar.vaultnote.data.db.entity.NoteEntity
+import com.lankeshwar.vaultnote.data.repository.TagRepository
 import com.lankeshwar.vaultnote.data.storage.AttachmentFileManager
 import com.lankeshwar.vaultnote.data.storage.VoiceRecorder
 import com.lankeshwar.vaultnote.screens.private_note_screen.PrivateNoteSession
@@ -28,6 +29,7 @@ import com.lankeshwar.vaultnote.widget.VaultNoteWidget
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ViewModelScoped
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,7 +38,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.collections.emptyList
-
+import kotlinx.coroutines.flow.flow
 enum class NoteSortOption {
     NEWEST_FIRST,
     OLDEST_FIRST,
@@ -52,6 +54,7 @@ enum class NoteFilterOption {
 class NotesViewModel @Inject constructor(
     private val repository: NotesRepository,
     private val draftRepository: NoteDraftRepository,
+    private val tagRepository: TagRepository,
     private val attachmentRepository: NoteAttachmentRepository,
     private val privateNoteSession: PrivateNoteSession,
     @ApplicationContext private val context: Context
@@ -86,17 +89,9 @@ class NotesViewModel @Inject constructor(
             repository.migrateExistingPrivateNote()
             migrateExistingPrivateAttachments()
         }
-        android.util.Log.d(
-            "VaultNoteBackup",
-            "NotesViewModel unlocked: ${privateNoteSession.isUnlocked.value}"
-        )
     }
 
     fun lockPrivateNotes(){
-        android.util.Log.d(
-            "VaultNoteBackup",
-            "Private notes LOCK requested"
-        )
         privateNoteSession.lock()
     }
 
@@ -294,10 +289,6 @@ class NotesViewModel @Inject constructor(
                     )
 
                     if (!deleted) {
-                        Log.e(
-                            "NoteDeletion",
-                            "Failed to delete attachment: ${attachment.filePath}"
-                        )
                         return@launch
                     }
                 }
@@ -652,6 +643,62 @@ class NotesViewModel @Inject constructor(
                         .thenByDescending { it.id })
                 }
             }
+    }
+
+    fun getRelatedNotes(noteId: Int,isPrivate: Boolean): Flow<List<Note>>{
+        return combine(
+            repository.getNotesForRelatedNotes(isPrivate),
+            flow { emit(tagRepository.getAllNoteTagCrossRefs()) }
+        ){ entities, crossRefs ->
+            //val currentNote = entities.find {it.id == noteId} ?: return@combine emptyList()
+
+            val currentNote = entities.find { it.id == noteId }
+            if(currentNote == null){
+                return@combine emptyList()
+            }
+
+            val tagByNote = crossRefs.groupBy { it.noteId }.mapValues { entry ->
+                entry.value.map { it.tagId }.toSet()
+            }
+
+            fun words(text:String): Set<String>{
+                return text.lowercase().split(Regex("[^a-z0-9]+"))
+                    .filter { it.length > 2 }.toSet()
+            }
+
+            val currentTitleWords = words(currentNote.title)
+            val currentContentWords = words(currentNote.preview + " " + currentNote.formattedContent)
+
+            val currentTags = tagByNote[noteId] ?: emptySet()
+
+            entities.filter { it.id != noteId }.mapNotNull { candidate ->
+                val candidateTags = tagByNote[candidate.id] ?: emptySet()
+                val sharedTagCount = currentTags.intersect(candidateTags).size
+                val sharedTitleWords = currentTitleWords.intersect(words(candidate.title)).size
+
+                val sharedContentWords = currentContentWords.intersect(words(candidate.preview+ " " +candidate.formattedContent)).size
+
+                val score = (sharedTagCount * 10) + (sharedTitleWords * 3) + sharedContentWords
+
+                if(score == 0){
+                    null
+                } else {
+                    score to Note(
+                        candidate.id,
+                        candidate.title,
+                        candidate.preview,
+                        candidate.formattedContent,
+                        candidate.date,
+                        candidate.isPinned,
+                        candidate.isFavorite,
+                        candidate.isPrivate,
+                        candidate.reminderTime,
+                        candidate.reminderRepeat,
+                        candidate.isReminderEnabled)
+                }
+            }
+                .sortedByDescending { it.first }.take(5).map { it.second }
+        }
     }
 
 }

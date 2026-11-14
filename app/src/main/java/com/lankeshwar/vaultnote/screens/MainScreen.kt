@@ -3,6 +3,7 @@ package com.lankeshwar.vaultnote.screens
 import android.app.Activity
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import android.view.WindowManager
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,10 +39,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.lankeshwar.vaultnote.Utils.AppLockPreferences
 import com.lankeshwar.vaultnote.Utils.Routes
 import com.lankeshwar.vaultnote.data.Note
 import com.lankeshwar.vaultnote.data.db.entity.JournalEntity
@@ -74,6 +79,7 @@ import com.lankeshwar.vaultnote.viewmodels.TaskViewModel
 import com.lankeshwar.vaultnote.viewmodels.backup.AutomaticBackupSettingsViewModel
 import com.lankeshwar.vaultnote.viewmodels.backup.TrashRetentionSettingsViewModel
 import kotlinx.coroutines.launch
+import okhttp3.Route
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,16 +98,17 @@ fun MainScreen(selectTheme: AppTheme? = null,
     val tasks by taskViewModel.tasks.collectAsState()
     val navController = rememberNavController()
     val backstackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backstackEntry?.destination?.route
 
     val notes by notesViewModel.notesFlow.collectAsState()
     var showDeleteNoteDialog by remember { mutableStateOf(false) }
     var handleNotificationNoteId by remember { mutableStateOf<Int?>(null) }
+    val currentRoute = backstackEntry?.destination?.route
     var selectedNote by remember {
         mutableStateOf<Note?>(null)
     }
     var selectedTask by remember { mutableStateOf<TaskEntity?>(null) }
     val context = LocalContext.current
+    val activity = context as? Activity
     var widgetTaskId by remember { mutableStateOf<Int?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -112,8 +119,52 @@ fun MainScreen(selectTheme: AppTheme? = null,
     }
     var openedTempleteFromEditor by remember{mutableStateOf(false)}
 
-    val activity = context as? Activity
     val isSecureScreen = currentRoute == Routes.PRIVATE || (currentRoute == Routes.NOTE_DETAIL && selectedNote?.isPrivate == true)
+
+    LaunchedEffect(currentRoute,selectedNote?.isPrivate) {
+        val isInsidePrivateSection = currentRoute == Routes.PRIVATE ||
+                (
+                        (currentRoute == Routes.NOTE_DETAIL || currentRoute == Routes.EDIT_NOTE) &&
+                selectedNote?.isPrivate == true)
+        if(!isInsidePrivateSection){
+            notesViewModel.lockPrivateNotes()
+        }
+    }
+
+    DisposableEffect(activity, currentRoute, selectedNote?.isPrivate) {
+
+        val observer = object : androidx.lifecycle.LifecycleEventObserver {
+
+            override fun onStateChanged(
+                source: androidx.lifecycle.LifecycleOwner,
+                event: Lifecycle.Event
+            ) {
+                if (event == Lifecycle.Event.ON_STOP) {
+
+                    val isInsidePrivateSection =
+                        currentRoute == Routes.PRIVATE ||
+                                (
+                                        (currentRoute == Routes.NOTE_DETAIL ||
+                                                currentRoute == Routes.EDIT_NOTE) &&
+                                                selectedNote?.isPrivate == true
+                                )
+
+                    if (isInsidePrivateSection &&
+                        AppLockPreferences.isAppLockEnabled(context)
+                    ) {
+                       notesViewModel.lockPrivateNotes()
+                    }
+                }
+            }
+        }
+
+        val lifecycleOwner = activity as? LifecycleOwner
+        lifecycleOwner?.lifecycle?.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner?.lifecycle?.removeObserver(observer)
+        }
+    }
 
     DisposableEffect(activity) {
         onDispose {
@@ -609,12 +660,17 @@ fun MainScreen(selectTheme: AppTheme? = null,
                     NoteDetailScreen(
                         noteId = note.id,
                         title = note.title,
+                        notesViewModel = notesViewModel,
                         content = note.preview,
                         formattedContent = note.formattedContent,
                         date = note.date,
                         isPrivate = note.isPrivate,
                         onBack = {
                             navController.popBackStack()
+                        },
+                        onRelatedNoteClick = { relatedNote ->
+                            selectedNote = relatedNote
+
                         },
                         onShare = {
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
